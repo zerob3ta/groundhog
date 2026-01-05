@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groundhog Day 2026 | Punxsutawney Phil Countdown</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --earth-brown: #5C4033;
+            --warm-amber: #D4A84B;
+            --frost-blue: #A8C8DC;
+            --deep-burrow: #2D1F14;
+            --parchment: #F5EDD8;
+            --shadow-dark: #1A120B;
+            --spring-green: #7CB342;
+            --winter-white: #E8F4F8;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--deep-burrow);
+            color: var(--parchment);
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: var(--shadow-dark);
+        }
+
+        .hero-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('phil.jpg');
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            z-index: 1;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(180deg, 
+                    rgba(26, 18, 11, 0.6) 0%, 
+                    rgba(26, 18, 11, 0.3) 30%,
+                    rgba(26, 18, 11, 0.3) 60%,
+                    rgba(26, 18, 11, 0.85) 100%);
+            z-index: 2;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 3;
+            text-align: center;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            min-height: 100vh;
+            padding-bottom: 4rem;
+        }
+
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(3rem, 10vw, 6rem);
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            color: var(--parchment);
+            text-shadow: 
+                0 2px 10px rgba(0, 0, 0, 0.8),
+                0 4px 30px rgba(212, 168, 75, 0.4),
+                0 0 60px rgba(212, 168, 75, 0.2);
+        }
+
+        .hero-subtitle {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.2rem, 3.5vw, 1.8rem);
+            font-weight: 400;
+            color: var(--warm-amber);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            margin-bottom: 3rem;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Countdown */
+        .countdown-section {
+            margin-top: 1rem;
+        }
+
+        .countdown-label {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--parchment);
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .countdown {
+            display: flex;
+            gap: clamp(0.5rem, 3vw, 1.5rem);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .countdown-item {
+            background: rgba(26, 18, 11, 0.85);
+            border: 1px solid rgba(212, 168, 75, 0.4);
+            border-radius: 15px;
+            padding: clamp(1rem, 3vw, 1.5rem);
+            min-width: clamp(70px, 15vw, 110px);
+            backdrop-filter: blur(15px);
+            box-shadow: 
+                0 10px 40px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .countdown-number {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 6vw, 4rem);
+            font-weight: 700;
+            color: var(--warm-amber);
+            line-height: 1;
+        }
+
+        .countdown-unit {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--frost-blue);
+            margin-top: 0.5rem;
+        }
+
+        /* Prediction Section */
+        .prediction-section {
+            padding: 6rem 2rem;
+            background: linear-gradient(180deg, var(--shadow-dark) 0%, var(--deep-burrow) 100%);
+            position: relative;
+        }
+
+        .prediction-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: linear-gradient(180deg, var(--deep-burrow) 0%, transparent 100%);
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 5vw, 3rem);
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--parchment);
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--frost-blue);
+            margin-bottom: 3rem;
+            font-size: 1.1rem;
+        }
+
+        .prediction-card {
+            background: linear-gradient(135deg, rgba(92, 64, 51, 0.6) 0%, rgba(45, 31, 20, 0.8) 100%);
+            border: 1px solid rgba(212, 168, 75, 0.2);
+            border-radius: 25px;
+            padding: 3rem;
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .prediction-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .prediction-result {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .prediction-result.shadow {
+            color: var(--frost-blue);
+        }
+
+        .prediction-result.no-shadow {
+            color: var(--spring-green);
+        }
+
+        .prediction-confidence {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .confidence-bar {
+            width: 200px;
+            height: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        .confidence-fill.shadow {
+            background: linear-gradient(90deg, var(--frost-blue), #89B4C8);
+        }
+
+        .confidence-fill.no-shadow {
+            background: linear-gradient(90deg, var(--spring-green), #9CCC65);
+        }
+
+        .confidence-percent {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(212, 168, 75, 0.2);
+        }
+
+        .weather-item {
+            text-align: center;
+        }
+
+        .weather-item-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .weather-item-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--warm-amber);
+        }
+
+        .weather-item-label {
+            font-size: 0.8rem;
+            color: var(--frost-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .prediction-updated {
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: rgba(245, 237, 216, 0.6);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(212, 168, 75, 0.3);
+            border-top-color: var(--warm-amber);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Stats Section */
+        .stats-section {
+            padding: 6rem 2rem;
+            background: var(--deep-burrow);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(92, 64, 51, 0.5) 0%, rgba(45, 31, 20, 0.7) 100%);
+            border: 1px solid rgba(212, 168, 75, 0.15);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .stat-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--warm-amber);
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: var(--frost-blue);
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .stat-sublabel {
+            font-size: 0.85rem;
+            color: rgba(245, 237, 216, 0.6);
+            margin-top: 0.25rem;
+        }
+
+        /* Chart Section */
+        .chart-container {
+            background: linear-gradient(135deg, rgba(92, 64, 51, 0.4) 0%, rgba(45, 31, 20, 0.6) 100%);
+            border: 1px solid rgba(212, 168, 75, 0.15);
+            border-radius: 25px;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .chart-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--parchment);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        /* Fun Predictions Table */
+        .predictions-table-wrapper {
+            overflow-x: auto;
+        }
+
+        .predictions-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .predictions-table thead th {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--warm-amber);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid rgba(212, 168, 75, 0.3);
+        }
+
+        .predictions-table tbody tr {
+            background: linear-gradient(135deg, rgba(92, 64, 51, 0.4) 0%, rgba(45, 31, 20, 0.5) 100%);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .predictions-table tbody tr:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .predictions-table td {
+            padding: 0.75rem 1rem;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .predictions-table td:first-child {
+            border-radius: 12px 0 0 12px;
+        }
+
+        .predictions-table td:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+
+        .year-cell {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--parchment);
+        }
+
+        .prediction-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .prediction-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .prediction-badge.winter {
+            background: linear-gradient(135deg, rgba(168, 200, 220, 0.3) 0%, rgba(168, 200, 220, 0.15) 100%);
+            border: 1px solid rgba(168, 200, 220, 0.5);
+            color: var(--frost-blue);
+        }
+
+        .prediction-badge.spring {
+            background: linear-gradient(135deg, rgba(124, 179, 66, 0.3) 0%, rgba(124, 179, 66, 0.15) 100%);
+            border: 1px solid rgba(124, 179, 66, 0.5);
+            color: var(--spring-green);
+        }
+
+        .prediction-badge .badge-icon {
+            font-size: 1.2rem;
+        }
+
+        .result-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .result-badge:hover {
+            transform: scale(1.2) rotate(10deg);
+        }
+
+        .result-badge.correct {
+            background: linear-gradient(135deg, rgba(124, 179, 66, 0.4) 0%, rgba(124, 179, 66, 0.2) 100%);
+            border: 2px solid var(--spring-green);
+            box-shadow: 0 0 15px rgba(124, 179, 66, 0.3);
+        }
+
+        .result-badge.incorrect {
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.4) 0%, rgba(255, 107, 107, 0.2) 100%);
+            border: 2px solid #FF6B6B;
+            box-shadow: 0 0 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .result-badge.tbd {
+            background: linear-gradient(135deg, rgba(212, 168, 75, 0.4) 0%, rgba(212, 168, 75, 0.2) 100%);
+            border: 2px solid var(--warm-amber);
+            box-shadow: 0 0 15px rgba(212, 168, 75, 0.3);
+            font-size: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .predictions-table thead th {
+                font-size: 0.75rem;
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .prediction-badge {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.7rem;
+            }
+            
+            .prediction-badge .badge-icon {
+                font-size: 1rem;
+            }
+            
+            .prediction-badge .badge-text {
+                display: none;
+            }
+            
+            .year-cell {
+                font-size: 1.1rem;
+            }
+            
+            .result-badge {
+                width: 35px;
+                height: 35px;
+                font-size: 1.2rem;
+            }
+        }
+
+        /* History Timeline */
+        .history-section {
+            padding: 6rem 2rem;
+            background: linear-gradient(180deg, var(--deep-burrow) 0%, var(--shadow-dark) 100%);
+        }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .timeline-year {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            transition: transform 0.2s ease;
+            cursor: default;
+        }
+
+        .timeline-year:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .timeline-year.shadow {
+            background: linear-gradient(135deg, var(--frost-blue) 0%, #7BA8BC 100%);
+            color: var(--shadow-dark);
+        }
+
+        .timeline-year.no-shadow {
+            background: linear-gradient(135deg, var(--spring-green) 0%, #6B9B37 100%);
+            color: var(--shadow-dark);
+        }
+
+        .timeline-year.no-record {
+            background: rgba(92, 64, 51, 0.3);
+            color: rgba(245, 237, 216, 0.4);
+        }
+
+        .timeline-year-num {
+            font-weight: 700;
+        }
+
+        .timeline-year-icon {
+            font-size: 1rem;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+
+        .legend-color.shadow {
+            background: var(--frost-blue);
+        }
+
+        .legend-color.no-shadow {
+            background: var(--spring-green);
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            text-align: center;
+            background: var(--shadow-dark);
+            border-top: 1px solid rgba(212, 168, 75, 0.1);
+        }
+
+        footer p {
+            color: rgba(245, 237, 216, 0.5);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--warm-amber);
+            text-decoration: none;
+        }
+
+        /* Decorative Elements */
+        .snowflake {
+            position: fixed;
+            color: rgba(255,255,255,0.3);
+            animation: fall linear infinite;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-10vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(110vh) rotate(360deg);
+                opacity: 0.3;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .prediction-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .chart-wrapper {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-background"></div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">Groundhog Day</h1>
+            <p class="hero-subtitle">February 2, 2026</p>
+            
+            <div class="countdown-section">
+                <p class="countdown-label">Time Until Phil's Prediction</p>
+                <div class="countdown" id="countdown">
+                    <div class="countdown-item">
+                        <div class="countdown-number" id="days">--</div>
+                        <div class="countdown-unit">Days</div>
+                    </div>
+                    <div class="countdown-item">
+                        <div class="countdown-number" id="hours">--</div>
+                        <div class="countdown-unit">Hours</div>
+                    </div>
+                    <div class="countdown-item">
+                        <div class="countdown-number" id="minutes">--</div>
+                        <div class="countdown-unit">Minutes</div>
+                    </div>
+                    <div class="countdown-item">
+                        <div class="countdown-number" id="seconds">--</div>
+                        <div class="countdown-unit">Seconds</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Weather-Based Prediction Section -->
+    <section class="prediction-section">
+        <div class="section-container">
+            <h2 class="section-title">🔮 Our Shadow Prediction</h2>
+            <p class="section-subtitle">Based on the weather forecast for Punxsutawney, PA on February 2nd</p>
+            
+            <div class="prediction-card" id="prediction-card">
+                <span class="prediction-icon" id="prediction-icon">
+                    <span class="loading-spinner"></span>
+                </span>
+                <div class="prediction-result" id="prediction-result">Loading forecast...</div>
+                <p id="prediction-explanation" style="color: rgba(245, 237, 216, 0.8); margin-bottom: 1rem;"></p>
+                
+                <div class="prediction-confidence">
+                    <span>Shadow Likelihood:</span>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidence-fill" style="width: 0%"></div>
+                    </div>
+                    <span class="confidence-percent" id="confidence-percent">--%</span>
+                </div>
+                
+                <div class="weather-details" id="weather-details" style="display: none;">
+                    <div class="weather-item">
+                        <div class="weather-item-icon" id="weather-icon">☀️</div>
+                        <div class="weather-item-value" id="weather-condition">--</div>
+                        <div class="weather-item-label">Conditions</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-item-icon">🌡️</div>
+                        <div class="weather-item-value" id="weather-temp">--°F</div>
+                        <div class="weather-item-label">Temperature</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-item-icon">☁️</div>
+                        <div class="weather-item-value" id="weather-clouds">--%</div>
+                        <div class="weather-item-label">Cloud Cover</div>
+                    </div>
+                    <div class="weather-item">
+                        <div class="weather-item-icon">🌅</div>
+                        <div class="weather-item-value" id="weather-sunrise">--:--</div>
+                        <div class="weather-item-label">Sunrise</div>
+                    </div>
+                </div>
+                
+                <p class="prediction-updated" id="prediction-updated">
+                    Forecast updates automatically • Last checked: --
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="section-container">
+            <h2 class="section-title">📊 Phil's Track Record</h2>
+            <p class="section-subtitle">138 years of prognostication (1887-2025)</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">128</div>
+                    <div class="stat-label">Total Predictions</div>
+                    <div class="stat-sublabel">10 years with no records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">108</div>
+                    <div class="stat-label">Shadow Sightings</div>
+                    <div class="stat-sublabel">More Winter (84%)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">21</div>
+                    <div class="stat-label">No Shadow</div>
+                    <div class="stat-sublabel">Early Spring (16%)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">39%</div>
+                    <div class="stat-label">Accuracy Rate</div>
+                    <div class="stat-sublabel">Per Stormfax Almanac</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3 class="chart-title">Predictions by Decade</h3>
+                <div class="chart-wrapper">
+                    <canvas id="decadeChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" style="margin-top: 2rem;">
+                <h3 class="chart-title">Recent Predictions vs Reality (2015-2025)</h3>
+                <div class="predictions-table-wrapper">
+                    <table class="predictions-table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Phil Predicted</th>
+                                <th>What Happened</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictions-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- History Timeline Section -->
+    <section class="history-section">
+        <div class="section-container">
+            <h2 class="section-title">📅 Prediction History</h2>
+            <p class="section-subtitle">Every prediction since 1887</p>
+            
+            <div class="timeline" id="timeline"></div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color shadow"></div>
+                    <span>❄️ Shadow (More Winter)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color no-shadow"></div>
+                    <span>🌸 No Shadow (Early Spring)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Data sourced from <a href="https://www.groundhog.org" target="_blank">Punxsutawney Groundhog Club</a> and NOAA</p>
+        <p style="margin-top: 0.5rem;">Weather prediction uses real forecast data for Punxsutawney, PA</p>
+    </footer>
+
+    <script>
+        // Historical prediction data
+        const predictions = {
+            // Early Spring years (no shadow)
+            earlySpring: [1902, 1934, 1942, 1950, 1970, 1975, 1983, 1986, 1988, 1990, 1995, 1997, 1999, 2007, 2011, 2013, 2016, 2019, 2020, 2024],
+            // Years with no record
+            noRecord: [1887, 1889, 1891, 1893, 1895, 1897, 1899, 1901, 1903, 1905],
+            // All other years from 1887-2025 are shadow years (more winter)
+        };
+
+        // Recent predictions with accuracy data
+        const recentPredictions = [
+            { year: 2015, prediction: 'shadow', actual: 'correct', temp: 'cold' },
+            { year: 2016, prediction: 'no-shadow', actual: 'incorrect', temp: 'warm' },
+            { year: 2017, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
+            { year: 2018, prediction: 'shadow', actual: 'incorrect', temp: 'variable' },
+            { year: 2019, prediction: 'no-shadow', actual: 'incorrect', temp: 'cold' },
+            { year: 2020, prediction: 'no-shadow', actual: 'correct', temp: 'warm' },
+            { year: 2021, prediction: 'shadow', actual: 'incorrect', temp: 'variable' },
+            { year: 2022, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
+            { year: 2023, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
+            { year: 2024, prediction: 'no-shadow', actual: 'correct', temp: 'warm' },
+            { year: 2025, prediction: 'shadow', actual: 'tbd', temp: 'tbd' },
+        ];
+
+        // Countdown to Groundhog Day 2026
+        function updateCountdown() {
+            // Groundhog Day is February 2, 2026 at 7:25 AM EST (Phil's traditional emergence time)
+            const groundhogDay = new Date('2026-02-02T07:25:00-05:00');
+            const now = new Date();
+            const diff = groundhogDay - now;
+
+            if (diff <= 0) {
+                document.getElementById('days').textContent = '0';
+                document.getElementById('hours').textContent = '0';
+                document.getElementById('minutes').textContent = '0';
+                document.getElementById('seconds').textContent = '0';
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('days').textContent = days;
+            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
+            document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
+        }
+
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+
+        // Weather-based prediction
+        async function fetchWeatherPrediction() {
+            const predictionIcon = document.getElementById('prediction-icon');
+            const predictionResult = document.getElementById('prediction-result');
+            const predictionExplanation = document.getElementById('prediction-explanation');
+            const confidenceFill = document.getElementById('confidence-fill');
+            const confidencePercent = document.getElementById('confidence-percent');
+            const weatherDetails = document.getElementById('weather-details');
+            const predictionUpdated = document.getElementById('prediction-updated');
+
+            try {
+                // Punxsutawney, PA coordinates
+                const lat = 40.9434;
+                const lon = -78.9709;
+                
+                // First get the forecast URL from NWS
+                const pointsResponse = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+                const pointsData = await pointsResponse.json();
+                
+                // Get the forecast
+                const forecastResponse = await fetch(pointsData.properties.forecast);
+                const forecastData = await forecastResponse.json();
+                
+                // Find the forecast for February 2nd morning
+                const groundhogDay = new Date('2026-02-02');
+                const now = new Date();
+                const daysUntil = Math.floor((groundhogDay - now) / (1000 * 60 * 60 * 24));
+                
+                let prediction = {
+                    shadowChance: 50,
+                    condition: 'Unknown',
+                    temp: '--',
+                    clouds: '--',
+                    sunrise: '7:25 AM',
+                    icon: '🌤️'
+                };
+
+                // If we're within forecast range (usually 7 days), use actual forecast
+                // Otherwise, use historical averages for early February
+                if (daysUntil <= 7) {
+                    const periods = forecastData.properties.periods;
+                    // Find the morning period for Feb 2
+                    for (let period of periods) {
+                        const periodDate = new Date(period.startTime);
+                        if (periodDate.getDate() === 2 && periodDate.getMonth() === 1) {
+                            const forecast = period.shortForecast.toLowerCase();
+                            const isDaytime = period.isDaytime;
+                            
+                            if (isDaytime) {
+                                prediction.temp = `${period.temperature}°${period.temperatureUnit}`;
+                                prediction.condition = period.shortForecast;
+                                
+                                // Determine shadow likelihood based on conditions
+                                if (forecast.includes('sunny') || forecast.includes('clear')) {
+                                    prediction.shadowChance = 85;
+                                    prediction.icon = '☀️';
+                                    prediction.clouds = '0-20%';
+                                } else if (forecast.includes('partly sunny') || forecast.includes('partly cloudy')) {
+                                    prediction.shadowChance = 60;
+                                    prediction.icon = '⛅';
+                                    prediction.clouds = '30-50%';
+                                } else if (forecast.includes('mostly cloudy')) {
+                                    prediction.shadowChance = 30;
+                                    prediction.icon = '🌥️';
+                                    prediction.clouds = '60-80%';
+                                } else if (forecast.includes('cloudy') || forecast.includes('overcast')) {
+                                    prediction.shadowChance = 15;
+                                    prediction.icon = '☁️';
+                                    prediction.clouds = '80-100%';
+                                } else if (forecast.includes('snow') || forecast.includes('rain')) {
+                                    prediction.shadowChance = 10;
+                                    prediction.icon = '🌨️';
+                                    prediction.clouds = '90-100%';
+                                } else {
+                                    prediction.shadowChance = 50;
+                                    prediction.icon = '🌤️';
+                                    prediction.clouds = '40-60%';
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // Use historical averages - early February in Punxsutawney is often cloudy
+                    // Historical data: ~60% of Feb 2nds are cloudy/overcast
+                    prediction.shadowChance = 40;
+                    prediction.condition = 'Forecast not yet available';
+                    prediction.temp = 'Avg: 20-30°F';
+                    prediction.clouds = 'Historical: ~60%';
+                    prediction.icon = '🔮';
+                }
+
+                // Update UI
+                const willSeeShadow = prediction.shadowChance >= 50;
+                
+                predictionIcon.textContent = prediction.shadowChance >= 50 ? '❄️' : '🌸';
+                predictionResult.textContent = willSeeShadow ? 
+                    'Phil Will Likely SEE His Shadow' : 
+                    'Phil May NOT See His Shadow';
+                predictionResult.className = `prediction-result ${willSeeShadow ? 'shadow' : 'no-shadow'}`;
+                
+                predictionExplanation.textContent = willSeeShadow ?
+                    'A sunny morning means a shadow, predicting 6 more weeks of winter!' :
+                    'Cloud cover may hide his shadow, signaling an early spring!';
+                
+                confidenceFill.style.width = `${prediction.shadowChance}%`;
+                confidenceFill.className = `confidence-fill ${willSeeShadow ? 'shadow' : 'no-shadow'}`;
+                confidencePercent.textContent = `${prediction.shadowChance}%`;
+                
+                document.getElementById('weather-icon').textContent = prediction.icon;
+                document.getElementById('weather-condition').textContent = prediction.condition;
+                document.getElementById('weather-temp').textContent = prediction.temp;
+                document.getElementById('weather-clouds').textContent = prediction.clouds;
+                document.getElementById('weather-sunrise').textContent = prediction.sunrise;
+                
+                weatherDetails.style.display = 'grid';
+                predictionUpdated.textContent = `Forecast updates automatically • Last checked: ${new Date().toLocaleString()}`;
+                
+            } catch (error) {
+                console.error('Weather fetch error:', error);
+                // Fallback to historical prediction
+                predictionIcon.textContent = '🔮';
+                predictionResult.textContent = 'Prediction Based on History';
+                predictionResult.className = 'prediction-result shadow';
+                predictionExplanation.textContent = 'Phil sees his shadow ~84% of the time historically. Weather forecast unavailable.';
+                confidenceFill.style.width = '84%';
+                confidenceFill.className = 'confidence-fill shadow';
+                confidencePercent.textContent = '84%';
+                predictionUpdated.textContent = 'Using historical data • Weather API unavailable';
+            }
+        }
+
+        // Fetch prediction on load and every 30 minutes
+        fetchWeatherPrediction();
+        setInterval(fetchWeatherPrediction, 30 * 60 * 1000);
+
+        // Generate timeline
+        function generateTimeline() {
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+            
+            for (let year = 1887; year <= 2025; year++) {
+                const div = document.createElement('div');
+                
+                let type = 'shadow';
+                let icon = '❄️';
+                
+                if (predictions.earlySpring.includes(year)) {
+                    type = 'no-shadow';
+                    icon = '🌸';
+                } else if (predictions.noRecord.includes(year)) {
+                    type = 'no-record';
+                    icon = '?';
+                }
+                
+                div.className = `timeline-year ${type}`;
+                div.innerHTML = `
+                    <span class="timeline-year-num">${year}</span>
+                    <span class="timeline-year-icon">${icon}</span>
+                `;
+                div.title = type === 'shadow' ? `${year}: More Winter` : 
+                           type === 'no-shadow' ? `${year}: Early Spring` : 
+                           `${year}: No Record`;
+                
+                timeline.appendChild(div);
+            }
+        }
+        generateTimeline();
+
+        // Charts
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#F5EDD8',
+                        font: { family: "'Source Sans 3', sans-serif" }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#A8C8DC' },
+                    grid: { color: 'rgba(168, 200, 220, 0.1)' }
+                },
+                y: {
+                    ticks: { color: '#A8C8DC' },
+                    grid: { color: 'rgba(168, 200, 220, 0.1)' }
+                }
+            }
+        };
+
+        // Decade chart - percentage stacked bar with trendline
+        const decades = ['1890s', '1900s', '1910s', '1920s', '1930s', '1940s', '1950s', '1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+        const shadowPercent = [100, 100, 100, 100, 90, 90, 90, 100, 80, 70, 70, 90, 70, 67];
+        const springPercent = [0, 0, 0, 0, 10, 10, 10, 0, 20, 30, 30, 10, 30, 33];
+        
+        // Calculate trendline for early spring percentage
+        const n = springPercent.length;
+        const sumX = springPercent.reduce((acc, _, i) => acc + i, 0);
+        const sumY = springPercent.reduce((acc, val) => acc + val, 0);
+        const sumXY = springPercent.reduce((acc, val, i) => acc + (i * val), 0);
+        const sumX2 = springPercent.reduce((acc, _, i) => acc + (i * i), 0);
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        const trendlineData = springPercent.map((_, i) => slope * i + intercept);
+
+        const decadeData = {
+            labels: decades,
+            datasets: [
+                {
+                    label: 'Shadow (More Winter)',
+                    data: shadowPercent,
+                    backgroundColor: 'rgba(168, 200, 220, 0.85)',
+                    borderColor: '#A8C8DC',
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'No Shadow (Early Spring)',
+                    data: springPercent,
+                    backgroundColor: 'rgba(124, 179, 66, 0.85)',
+                    borderColor: '#7CB342',
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    order: 3
+                },
+                {
+                    label: 'Early Spring Trend',
+                    data: trendlineData,
+                    type: 'line',
+                    borderColor: '#D4A84B',
+                    borderWidth: 3,
+                    borderDash: [8, 4],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    order: 1
+                }
+            ]
+        };
+
+        new Chart(document.getElementById('decadeChart'), {
+            type: 'bar',
+            data: decadeData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#F5EDD8',
+                            font: { family: "'Source Sans 3', sans-serif", size: 12 },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.dataset.label === 'Early Spring Trend') {
+                                    return `Trend: ${context.raw.toFixed(1)}%`;
+                                }
+                                return `${context.dataset.label}: ${context.raw}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { color: '#A8C8DC' },
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        max: 100,
+                        ticks: { 
+                            color: '#A8C8DC',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        grid: { color: 'rgba(168, 200, 220, 0.1)' }
+                    }
+                }
+            }
+        });
+
+        // Generate predictions table
+        const tableData = [
+            { year: 2025, prediction: 'winter', actual: 'tbd', correct: 'tbd' },
+            { year: 2024, prediction: 'spring', actual: 'spring', correct: true },
+            { year: 2023, prediction: 'winter', actual: 'spring', correct: false },
+            { year: 2022, prediction: 'winter', actual: 'spring', correct: false },
+            { year: 2021, prediction: 'winter', actual: 'mixed', correct: false },
+            { year: 2020, prediction: 'spring', actual: 'spring', correct: true },
+            { year: 2019, prediction: 'spring', actual: 'winter', correct: false },
+            { year: 2018, prediction: 'winter', actual: 'mixed', correct: false },
+            { year: 2017, prediction: 'winter', actual: 'spring', correct: false },
+            { year: 2016, prediction: 'spring', actual: 'spring', correct: true },
+            { year: 2015, prediction: 'winter', actual: 'winter', correct: true },
+        ];
+
+        function generateTable() {
+            const tbody = document.getElementById('predictions-table-body');
+            
+            tableData.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                // Year cell
+                const yearTd = document.createElement('td');
+                yearTd.innerHTML = `<span class="year-cell">${row.year}</span>`;
+                tr.appendChild(yearTd);
+                
+                // Prediction cell
+                const predTd = document.createElement('td');
+                const predIcon = row.prediction === 'winter' ? '❄️' : '🌸';
+                const predText = row.prediction === 'winter' ? 'More Winter' : 'Early Spring';
+                const predClass = row.prediction === 'winter' ? 'winter' : 'spring';
+                predTd.innerHTML = `
+                    <span class="prediction-badge ${predClass}">
+                        <span class="badge-icon">${predIcon}</span>
+                        <span class="badge-text">${predText}</span>
+                    </span>
+                `;
+                tr.appendChild(predTd);
+                
+                // Actual cell
+                const actualTd = document.createElement('td');
+                if (row.actual === 'tbd') {
+                    actualTd.innerHTML = `
+                        <span class="prediction-badge winter" style="opacity: 0.5; border-style: dashed;">
+                            <span class="badge-icon">🔮</span>
+                            <span class="badge-text">TBD</span>
+                        </span>
+                    `;
+                } else {
+                    const actualIcon = row.actual === 'winter' ? '❄️' : row.actual === 'spring' ? '🌸' : '🌤️';
+                    const actualText = row.actual === 'winter' ? 'More Winter' : row.actual === 'spring' ? 'Early Spring' : 'Mixed';
+                    const actualClass = row.actual === 'winter' ? 'winter' : 'spring';
+                    actualTd.innerHTML = `
+                        <span class="prediction-badge ${actualClass}">
+                            <span class="badge-icon">${actualIcon}</span>
+                            <span class="badge-text">${actualText}</span>
+                        </span>
+                    `;
+                }
+                tr.appendChild(actualTd);
+                
+                // Result cell
+                const resultTd = document.createElement('td');
+                if (row.correct === 'tbd') {
+                    resultTd.innerHTML = `<span class="result-badge tbd" title="To be determined">⏳</span>`;
+                } else if (row.correct) {
+                    resultTd.innerHTML = `<span class="result-badge correct" title="Phil was right!">✓</span>`;
+                } else {
+                    resultTd.innerHTML = `<span class="result-badge incorrect" title="Phil was wrong">✗</span>`;
+                }
+                tr.appendChild(resultTd);
+                
+                tbody.appendChild(tr);
+            });
+        }
+        
+        generateTable();
+
+        // Snowflake animation
+        function createSnowflake() {
+            const snowflake = document.createElement('div');
+            snowflake.className = 'snowflake';
+            snowflake.textContent = ['❄', '❅', '❆'][Math.floor(Math.random() * 3)];
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+            snowflake.style.animationDuration = (Math.random() * 5 + 8) + 's';
+            document.body.appendChild(snowflake);
+            
+            setTimeout(() => snowflake.remove(), 15000);
+        }
+
+        // Create snowflakes periodically
+        setInterval(createSnowflake, 800);
+    </script>
+</body>
+</html>
