@@ -1099,6 +1099,37 @@
             text-decoration: none;
         }
 
+        .visit-stats {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(212, 168, 75, 0.1);
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: rgba(245, 237, 216, 0.6);
+        }
+
+        .visit-stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .visit-stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .visit-stat-value {
+            color: var(--warm-amber);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
         /* Decorative Elements */
         .snowflake {
             position: fixed;
@@ -1392,6 +1423,21 @@
     <footer>
         <p>Data sourced from <a href="https://www.groundhog.org" target="_blank">Punxsutawney Groundhog Club</a> and NOAA</p>
         <p style="margin-top: 0.5rem;">Weather prediction uses real forecast data for Punxsutawney, PA</p>
+
+        <div class="visit-stats">
+            <div class="visit-stat-item">
+                <span class="visit-stat-label">Total Visits</span>
+                <span class="visit-stat-value" id="totalVisits">...</span>
+            </div>
+            <div class="visit-stat-item">
+                <span class="visit-stat-label">Furthest Visitor</span>
+                <span class="visit-stat-value" id="furthestLocation">...</span>
+            </div>
+            <div class="visit-stat-item">
+                <span class="visit-stat-label">Distance to Punxsutawney</span>
+                <span class="visit-stat-value" id="furthestDistance">...</span>
+            </div>
+        </div>
     </footer>
 
     <script>
@@ -1970,6 +2016,79 @@
                 exitGroundhogModeFunc();
             }
         });
+
+        // Visit Counter and Location Tracking
+        const PUNXSUTAWNEY = { lat: 40.9434, lon: -78.9614 };
+
+        // Calculate distance between two points using Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 3959; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Track visit and location
+        async function trackVisit() {
+            // Increment visit counter using CountAPI
+            try {
+                const response = await fetch('https://api.countapi.xyz/hit/groundhog.life/visits');
+                const data = await response.json();
+                document.getElementById('totalVisits').textContent = data.value.toLocaleString();
+            } catch (error) {
+                console.error('Error tracking visit:', error);
+                document.getElementById('totalVisits').textContent = '---';
+            }
+
+            // Get visitor location via IP (no permission needed)
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+
+                const distance = calculateDistance(
+                    PUNXSUTAWNEY.lat,
+                    PUNXSUTAWNEY.lon,
+                    data.latitude,
+                    data.longitude
+                );
+
+                const cityName = `${data.city}, ${data.country_name}`;
+
+                const stored = localStorage.getItem('furthestVisitor');
+                let furthest = stored ? JSON.parse(stored) : { distance: 0, location: 'Punxsutawney, PA' };
+
+                if (distance > furthest.distance) {
+                    furthest = { distance, location: cityName };
+                    localStorage.setItem('furthestVisitor', JSON.stringify(furthest));
+                }
+
+                updateFurthestDisplay(furthest);
+            } catch (error) {
+                console.error('Location error:', error);
+                loadStoredFurthest();
+            }
+        }
+
+        function updateFurthestDisplay(furthest) {
+            document.getElementById('furthestLocation').textContent = furthest.location;
+            document.getElementById('furthestDistance').textContent =
+                furthest.distance > 0
+                    ? `${Math.round(furthest.distance).toLocaleString()} mi`
+                    : '0 mi';
+        }
+
+        function loadStoredFurthest() {
+            const stored = localStorage.getItem('furthestVisitor');
+            const furthest = stored ? JSON.parse(stored) : { distance: 0, location: 'Punxsutawney, PA' };
+            updateFurthestDisplay(furthest);
+        }
+
+        // Initialize visit tracking
+        trackVisit();
     </script>
 </body>
 </html>
