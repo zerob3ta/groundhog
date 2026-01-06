@@ -2068,29 +2068,25 @@
 
             // Get visitor location via IP (no permission needed)
             try {
-                const response = await fetch('https://ipapi.co/json/');
+                const response = await fetch('http://ip-api.com/json/');
                 const data = await response.json();
 
-                // Validate that we have proper location data
-                const hasValidCity = data.city && data.city !== 'Unknown' && data.city.trim() !== '';
-                const hasValidCountry = data.country_name && data.country_name !== 'Unknown' && data.country_name.trim() !== '';
-                const hasValidCoords = data.latitude && data.longitude && !isNaN(data.latitude) && !isNaN(data.longitude);
-
-                if (hasValidCity && hasValidCountry && hasValidCoords) {
+                // Check if API returned success
+                if (data.status === 'success') {
                     const distance = calculateDistance(
                         PUNXSUTAWNEY.lat,
                         PUNXSUTAWNEY.lon,
-                        data.latitude,
-                        data.longitude
+                        data.lat,
+                        data.lon
                     );
 
-                    const cityName = `${data.city}, ${data.country_name}`;
+                    const cityName = `${data.city}, ${data.country}`;
 
                     // Display current visitor location
                     updateVisitorDisplay({ distance, location: cityName });
                 } else {
-                    // Invalid location data, show default
-                    console.log('Invalid location data, showing default');
+                    // API returned failure
+                    console.log('Location API failed:', data.message);
                     updateVisitorDisplay({ distance: 0, location: 'Unknown' });
                 }
             } catch (error) {
