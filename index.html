@@ -1451,7 +1451,7 @@
                 <span class="visit-stat-value" id="totalVisits">...</span>
             </div>
             <div class="visit-stat-item">
-                <span class="visit-stat-label">Furthest Visitor</span>
+                <span class="visit-stat-label">Current Visitor</span>
                 <span class="visit-stat-value" id="furthestLocation">...</span>
             </div>
             <div class="visit-stat-item">
@@ -1483,7 +1483,7 @@
             { year: 2022, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
             { year: 2023, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
             { year: 2024, prediction: 'no-shadow', actual: 'correct', temp: 'warm' },
-            { year: 2025, prediction: 'shadow', actual: 'tbd', temp: 'tbd' },
+            { year: 2025, prediction: 'shadow', actual: 'incorrect', temp: 'warm' },
         ];
 
         // Countdown to Groundhog Day 2026
@@ -1808,7 +1808,7 @@
 
         // Generate predictions table
         const tableData = [
-            { year: 2025, prediction: 'winter', actual: 'tbd', correct: 'tbd' },
+            { year: 2025, prediction: 'winter', actual: 'spring', correct: false },
             { year: 2024, prediction: 'spring', actual: 'spring', correct: true },
             { year: 2023, prediction: 'winter', actual: 'spring', correct: false },
             { year: 2022, prediction: 'winter', actual: 'spring', correct: false },
@@ -2086,41 +2086,25 @@
 
                     const cityName = `${data.city}, ${data.country_name}`;
 
-                    // Get stored furthest visitor
-                    const stored = localStorage.getItem('furthestVisitor');
-                    let furthest = stored ? JSON.parse(stored) : { distance: 0, location: 'Punxsutawney, PA' };
-
-                    // Only update if this visitor is further
-                    if (distance > furthest.distance) {
-                        furthest = { distance, location: cityName };
-                        localStorage.setItem('furthestVisitor', JSON.stringify(furthest));
-                        console.log('New furthest visitor:', cityName, Math.round(distance), 'miles');
-                    }
-
-                    updateFurthestDisplay(furthest);
+                    // Display current visitor location
+                    updateVisitorDisplay({ distance, location: cityName });
                 } else {
-                    // Invalid location data, just load what we have stored
-                    console.log('Invalid location data, skipping update');
-                    loadStoredFurthest();
+                    // Invalid location data, show default
+                    console.log('Invalid location data, showing default');
+                    updateVisitorDisplay({ distance: 0, location: 'Unknown' });
                 }
             } catch (error) {
                 console.error('Location error:', error);
-                loadStoredFurthest();
+                updateVisitorDisplay({ distance: 0, location: 'Unknown' });
             }
         }
 
-        function updateFurthestDisplay(furthest) {
-            document.getElementById('furthestLocation').textContent = furthest.location;
+        function updateVisitorDisplay(visitor) {
+            document.getElementById('furthestLocation').textContent = visitor.location;
             document.getElementById('furthestDistance').textContent =
-                furthest.distance > 0
-                    ? `${Math.round(furthest.distance).toLocaleString()} mi`
+                visitor.distance > 0
+                    ? `${Math.round(visitor.distance).toLocaleString()} mi`
                     : '0 mi';
-        }
-
-        function loadStoredFurthest() {
-            const stored = localStorage.getItem('furthestVisitor');
-            const furthest = stored ? JSON.parse(stored) : { distance: 0, location: 'Punxsutawney, PA' };
-            updateFurthestDisplay(furthest);
         }
 
         // Initialize visit tracking
