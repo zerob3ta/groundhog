@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#5C4033"/>
+
+  <!-- Groundhog body -->
+  <ellipse cx="50" cy="65" rx="28" ry="22" fill="#8B6F47"/>
+
+  <!-- Groundhog head -->
+  <circle cx="50" cy="40" r="20" fill="#8B6F47"/>
+
+  <!-- Ears -->
+  <ellipse cx="38" cy="28" rx="6" ry="8" fill="#8B6F47"/>
+  <ellipse cx="62" cy="28" rx="6" ry="8" fill="#8B6F47"/>
+
+  <!-- Inner ears -->
+  <ellipse cx="38" cy="29" rx="3" ry="4" fill="#A0826D"/>
+  <ellipse cx="62" cy="29" rx="3" ry="4" fill="#A0826D"/>
+
+  <!-- Eyes -->
+  <circle cx="43" cy="38" r="3" fill="#2D1F14"/>
+  <circle cx="57" cy="38" r="3" fill="#2D1F14"/>
+
+  <!-- Eye highlights -->
+  <circle cx="44" cy="37" r="1.2" fill="#FFF"/>
+  <circle cx="58" cy="37" r="1.2" fill="#FFF"/>
+
+  <!-- Nose -->
+  <ellipse cx="50" cy="45" rx="4" ry="3" fill="#2D1F14"/>
+
+  <!-- Mouth -->
+  <path d="M 50 45 Q 45 48 43 47" stroke="#2D1F14" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 50 45 Q 55 48 57 47" stroke="#2D1F14" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Teeth -->
+  <rect x="48" y="48" width="2" height="3" fill="#FFF" rx="0.5"/>
+  <rect x="50" y="48" width="2" height="3" fill="#FFF" rx="0.5"/>
+
+  <!-- Whiskers left -->
+  <line x1="32" y1="42" x2="40" y2="41" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+  <line x1="32" y1="45" x2="40" y2="45" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+  <line x1="32" y1="48" x2="40" y2="49" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- Whiskers right -->
+  <line x1="68" y1="42" x2="60" y2="41" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+  <line x1="68" y1="45" x2="60" y2="45" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+  <line x1="68" y1="48" x2="60" y2="49" stroke="#2D1F14" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- Arms -->
+  <ellipse cx="30" cy="60" rx="8" ry="12" fill="#8B6F47"/>
+  <ellipse cx="70" cy="60" rx="8" ry="12" fill="#8B6F47"/>
+
+  <!-- Paws -->
+  <ellipse cx="28" cy="68" rx="5" ry="6" fill="#A0826D"/>
+  <ellipse cx="72" cy="68" rx="5" ry="6" fill="#A0826D"/>
+
+  <!-- Shadow (simple) -->
+  <ellipse cx="50" cy="85" rx="20" ry="4" fill="#2D1F14" opacity="0.3"/>
+</svg>
