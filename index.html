@@ -1450,14 +1450,6 @@
                 <span class="visit-stat-label">Total Visits</span>
                 <span class="visit-stat-value" id="totalVisits">...</span>
             </div>
-            <div class="visit-stat-item">
-                <span class="visit-stat-label">Current Visitor</span>
-                <span class="visit-stat-value" id="furthestLocation">...</span>
-            </div>
-            <div class="visit-stat-item">
-                <span class="visit-stat-label">Distance to Punxsutawney</span>
-                <span class="visit-stat-value" id="furthestDistance">...</span>
-            </div>
         </div>
     </footer>
 
@@ -2038,25 +2030,9 @@
             }
         });
 
-        // Visit Counter and Location Tracking
-        const PUNXSUTAWNEY = { lat: 40.9434, lon: -78.9614 };
-
-        // Calculate distance between two points using Haversine formula
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 3959; // Earth's radius in miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // Track visit and location
-        async function trackVisit() {
-            // Increment visit counter using GoatCounter (lightweight, privacy-friendly)
-            // For now, show a simulated global counter
+        // Visit Counter
+        function trackVisit() {
+            // Increment visit counter using localStorage
             let visitCount = parseInt(localStorage.getItem('localVisitCount') || '0');
             visitCount++;
             localStorage.setItem('localVisitCount', visitCount.toString());
@@ -2065,42 +2041,6 @@
             const baseCount = 1337; // Starting base number
             const displayCount = baseCount + visitCount;
             document.getElementById('totalVisits').textContent = displayCount.toLocaleString();
-
-            // Get visitor location via IP (no permission needed)
-            try {
-                const response = await fetch('http://ip-api.com/json/');
-                const data = await response.json();
-
-                // Check if API returned success
-                if (data.status === 'success') {
-                    const distance = calculateDistance(
-                        PUNXSUTAWNEY.lat,
-                        PUNXSUTAWNEY.lon,
-                        data.lat,
-                        data.lon
-                    );
-
-                    const cityName = `${data.city}, ${data.country}`;
-
-                    // Display current visitor location
-                    updateVisitorDisplay({ distance, location: cityName });
-                } else {
-                    // API returned failure
-                    console.log('Location API failed:', data.message);
-                    updateVisitorDisplay({ distance: 0, location: 'Unknown' });
-                }
-            } catch (error) {
-                console.error('Location error:', error);
-                updateVisitorDisplay({ distance: 0, location: 'Unknown' });
-            }
-        }
-
-        function updateVisitorDisplay(visitor) {
-            document.getElementById('furthestLocation').textContent = visitor.location;
-            document.getElementById('furthestDistance').textContent =
-                visitor.distance > 0
-                    ? `${Math.round(visitor.distance).toLocaleString()} mi`
-                    : '0 mi';
         }
 
         // Initialize visit tracking
