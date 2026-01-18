@@ -1,16 +1,51 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { CHAT_CONFIG, buildSystemPrompt } from '@/lib/phil-prompt'
 import type { SessionState } from '@/lib/session-state'
+import { getBroadcastState } from '@/lib/broadcast/state'
+import { getOrchestrator } from '@/lib/broadcast/orchestrator'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
 export async function POST(request: Request) {
   try {
-    const { messages, sessionState, userMessage } = await request.json() as {
-      messages: { role: string; content: string }[]
+    const body = await request.json() as {
+      messages?: { role: string; content: string }[]
       sessionState?: SessionState
       userMessage?: string // The actual user message text for suggestibility analysis
+      // Broadcast mode fields
+      broadcast?: boolean
+      clientId?: string
+      displayName?: string
+      text?: string
     }
+
+    // Handle broadcast mode - user message via shared broadcast system
+    if (body.broadcast) {
+      const { clientId, displayName, text } = body
+
+      if (!clientId || !displayName || !text) {
+        return new Response('clientId, displayName, and text required for broadcast', { status: 400 })
+      }
+
+      const state = getBroadcastState()
+      const client = state.getClient(clientId)
+
+      if (!client) {
+        return new Response('Client not found. Please refresh the page.', { status: 404 })
+      }
+
+      if (client.displayName !== displayName) {
+        return new Response('Display name mismatch', { status: 403 })
+      }
+
+      // Route to orchestrator for processing and broadcast
+      const orchestrator = getOrchestrator()
+      await orchestrator.handleUserMessage(displayName, text)
+      return Response.json({ success: true })
+    }
+
+    // Legacy mode - direct API call (used by orchestrator internally)
+    const { messages, sessionState, userMessage } = body
 
     if (!messages || !Array.isArray(messages)) {
       return new Response('Messages array required', { status: 400 })

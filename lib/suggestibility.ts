@@ -158,7 +158,7 @@ export function analyzeRequest(message: string): RequestAnalysis {
 export interface SuggestibilityResult {
   score: number // 0-100
   willComply: boolean
-  complianceStyle: 'manic' | 'exhausted' | 'challenged' | 'confessional' | 'refuse' | null
+  complianceStyle: 'manic' | 'challenged' | 'confessional' | 'refuse' | null
   reason: string
 }
 
@@ -196,13 +196,14 @@ export function calculateSuggestibility(
     reasons.push(`Winter chaos (+${bonus}: might do something genuine)`)
   }
 
-  // Exhausted = doesn't care enough to fight
-  if (state.phil.energy < 25) {
-    score += 25
-    reasons.push(`Exhausted (+25: "fine, whatever")`)
-  } else if (state.phil.energy < 40) {
+  // High chaos = unpredictable, more suggestible
+  // This replaces the old energy-based suggestibility
+  if (chaos > 0.7) {
+    score += 20
+    reasons.push(`High chaos (+20: unpredictable state)`)
+  } else if (chaos > 0.5) {
     score += 10
-    reasons.push(`Low energy (+10: less resistant)`)
+    reasons.push(`Moderate chaos (+10: less stable)`)
   }
 
   // Challenge/dare = ego activated
@@ -265,8 +266,9 @@ export function calculateSuggestibility(
     // Determine the style of compliance
     if (flavor === 'spring' && chaos > 0.4) {
       complianceStyle = 'manic'
-    } else if (state.phil.energy < 25) {
-      complianceStyle = 'exhausted'
+    } else if (chaos > 0.7) {
+      // High chaos = unpredictable, could go either way
+      complianceStyle = Math.random() < 0.5 ? 'manic' : 'confessional'
     } else if (request.challengeLevel > 0.5) {
       complianceStyle = 'challenged'
     } else if (flavor === 'winter' && chaos > 0.5) {
@@ -276,7 +278,7 @@ export function calculateSuggestibility(
       if (score >= 70) {
         complianceStyle = 'manic'
       } else {
-        complianceStyle = 'exhausted' // Half-hearted default
+        complianceStyle = 'challenged' // Default
       }
     }
   } else {
@@ -348,16 +350,6 @@ DO IT YOUR WAY - make it big, make it weird, make it about YOU.
 - Keep it SHORT though - you're not doing the whole thing
 - After: immediately act like it was nothing, or demand applause
 Example: "OH YOU WANT A SONG? *clears throat* Here goes... [2 lines of absurd Phil song] ...you're WELCOME. That's all you get."`
-
-    case 'exhausted':
-      return `## REQUEST DETECTED: "${requestDesc}" - FINE, WHATEVER
-You're exhausted. You don't have the energy to fight this.
-DO A HALF-ASSED VERSION:
-- Trail off mid-way
-- Minimal effort
-- "Fine... [barely tries]... there. happy? i'm tired."
-- Might just stop in the middle
-- Immediately go back to complaining about being tired`
 
     case 'challenged':
       return `## REQUEST DETECTED: "${requestDesc}" - OH YOU THINK I CAN'T?
