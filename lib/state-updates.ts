@@ -14,7 +14,6 @@ import { trackPhrasesInState, getChaosPrompt, updateChaosTheme } from './emotion
 import {
   type ChatterType,
   calculateChatterEffect,
-  getChatterStateChanges,
 } from './chatters'
 import { calculateChaos } from './trait-system'
 
@@ -184,188 +183,152 @@ export function transitionMood(
 }
 
 // ============================================
-// ENERGY SYSTEM
+// SINGLE-AXIS SEASON SYSTEM
 // ============================================
+// season: 0 = full winter, 50 = baseline/order, 100 = full spring
+// chaos = |season - 50| / 50 (automatically derived)
+// flavor = season < 50 ? 'winter' : 'spring' (automatically derived)
 
-// Deplete energy when Phil talks
-export function depleteEnergy(state: SessionState, messageLength: number): SessionState {
-  // Longer messages cost more energy (reduced costs for longer stamina)
-  const baseCost = 3 // Reduced from 5
-  const lengthCost = Math.floor(messageLength / 100) // 1 extra per 100 chars (was 50)
-  const totalCost = Math.min(8, baseCost + lengthCost) // Cap at 8 (was 15)
+// Season change magnitudes (INCREASED for more chaos drift)
+// Negative = push toward winter (0), Positive = push toward spring (100)
+const SEASON_TRIGGERS = {
+  // Winter triggers (push toward 0)
+  troll: -8,           // Trolling pushes toward winter
+  silence: -3,         // Ignored/silence
+  weird: -5,           // Confusing message
+  meta: -12,           // AI/bot/fake mention - BIG winter push
+  boring: -4,          // Boring question
+  failed_joke: -5,     // Joke fell flat
+  time: -2,            // Time passing (slow drift)
+  existential: -10,    // Existential questions
 
-  const newEnergy = Math.max(0, state.phil.energy - totalCost)
+  // Spring triggers (push toward 100)
+  engagement: 8,       // Genuine engagement
+  wholesome: 5,        // Positive message
+  good_question: 6,    // Interesting question
+  roast_success: 4,    // Successful roast
+  hype: 10,            // Chat hype - BIG spring push
+  favorite_topic: 5,   // Favorite topic
+} as const
 
-  if (newEnergy !== state.phil.energy) {
-    logStateChange('Energy', `${state.phil.energy} -> ${newEnergy}`, {
-      cost: totalCost,
-      reason: 'spoke',
-    })
-  }
+export type SeasonTrigger = keyof typeof SEASON_TRIGGERS
 
-  return {
-    ...state,
-    phil: {
-      ...state.phil,
-      energy: newEnergy,
-      lastSpokeAt: Date.now(),
-      messageCount: state.phil.messageCount + 1,
-    },
-    session: {
-      ...state.session,
-      philMessages: state.session.philMessages + 1,
-    },
-  }
+// Apply a season trigger - pushes toward winter (negative) or spring (positive)
+export function applySeasonTrigger(
+  state: SessionState,
+  trigger: SeasonTrigger
+): SessionState {
+  const delta = SEASON_TRIGGERS[trigger]
+  return applySeasonDelta(state, delta, trigger)
 }
 
-// Recharge energy during silence
-export function rechargeEnergy(state: SessionState): SessionState {
-  const timeSinceSpoke = Date.now() - state.phil.lastSpokeAt
-  const secondsSinceSpoke = timeSinceSpoke / 1000
-
-  // Recharge 3 energy per 4 seconds of silence, up to 100 (increased from 2 per 5s)
-  const rechargeAmount = Math.floor(secondsSinceSpoke / 4) * 3
-  const newEnergy = Math.min(100, state.phil.energy + rechargeAmount)
-
-  // Update longest silence tracking
-  const newLongestSilence = Math.max(state.session.longestSilence, timeSinceSpoke)
-
-  if (rechargeAmount > 0 && newEnergy !== state.phil.energy) {
-    logStateChange('Energy', `${state.phil.energy} -> ${newEnergy}`, {
-      recharge: rechargeAmount,
-      silence: `${Math.floor(secondsSinceSpoke)}s`,
-    })
-  }
-
-  return {
-    ...state,
-    phil: {
-      ...state.phil,
-      energy: newEnergy,
-    },
-    session: {
-      ...state.session,
-      longestSilence: newLongestSilence,
-    },
-  }
-}
-
-// ============================================
-// WINTER/SPRING BALANCE
-// ============================================
-
-export interface SeasonModifier {
-  winter: number
-  spring: number
-  reason: string
-}
-
-// Things that bring winter (chaos)
+// Legacy function aliases for backwards compatibility
 export function applyWinterTrigger(
   state: SessionState,
   trigger: 'troll' | 'silence' | 'weird' | 'meta' | 'boring' | 'failed_joke' | 'time'
 ): SessionState {
-  const modifiers: Record<typeof trigger, SeasonModifier> = {
-    troll: { winter: 5, spring: -2, reason: 'troll interaction' },
-    silence: { winter: 2, spring: -1, reason: 'ignored/silence' },
-    weird: { winter: 3, spring: 0, reason: 'confusing message' },
-    meta: { winter: 8, spring: -3, reason: 'AI/bot/fake mention' },
-    boring: { winter: 2, spring: -1, reason: 'boring question' },
-    failed_joke: { winter: 3, spring: -1, reason: 'joke fell flat' },
-    time: { winter: 1, spring: 0, reason: 'time passing' },
-  }
-
-  const mod = modifiers[trigger]
-  return applySeasonModifier(state, mod)
+  return applySeasonTrigger(state, trigger)
 }
 
-// Things that bring spring (order)
 export function applySpringTrigger(
   state: SessionState,
   trigger: 'engagement' | 'wholesome' | 'good_question' | 'roast_success' | 'hype' | 'favorite_topic'
 ): SessionState {
-  const modifiers: Record<typeof trigger, SeasonModifier> = {
-    engagement: { winter: -2, spring: 5, reason: 'genuine engagement' },
-    wholesome: { winter: -1, spring: 3, reason: 'positive message' },
-    good_question: { winter: -1, spring: 4, reason: 'interesting question' },
-    roast_success: { winter: 0, spring: 2, reason: 'successful roast' },
-    hype: { winter: -2, spring: 5, reason: 'chat hype' },
-    favorite_topic: { winter: -1, spring: 3, reason: 'favorite topic' },
-  }
-
-  const mod = modifiers[trigger]
-  return applySeasonModifier(state, mod)
+  return applySeasonTrigger(state, trigger)
 }
 
-// Apply a season modifier
-function applySeasonModifier(state: SessionState, mod: SeasonModifier): SessionState {
-  const oldWinter = state.phil.winter
-  const oldSpring = state.phil.spring
+// Apply a raw delta to the season value
+function applySeasonDelta(state: SessionState, delta: number, reason: string): SessionState {
+  const oldSeason = state.phil.season
+  const newSeason = Math.max(0, Math.min(100, oldSeason + delta))
 
-  let newWinter = Math.max(0, Math.min(100, oldWinter + mod.winter))
-  let newSpring = Math.max(0, Math.min(100, oldSpring + mod.spring))
+  if (oldSeason === newSeason) return state
 
-  // Check for winter storm aftermath - spring surges back
+  const oldChaos = Math.abs(oldSeason - 50) / 50
+  const newChaos = Math.abs(newSeason - 50) / 50
+  const oldFlavor = oldSeason < 50 ? 'winter' : 'spring'
+  const newFlavor = newSeason < 50 ? 'winter' : 'spring'
+
+  logStateChange('Season', `Season: ${oldSeason} -> ${newSeason}`, {
+    reason,
+    chaos: `${Math.round(oldChaos * 100)}% -> ${Math.round(newChaos * 100)}%`,
+    flavor: newFlavor,
+  })
+
   const oldLevel = getSeasonLevel(state)
-  if (oldLevel === 'winter_storm' && newWinter < 85) {
-    // Storm passed, spring surges
-    newSpring = Math.min(100, newSpring + 30)
-    logStateChange('Season', 'WINTER STORM PASSED - Spring surging back', {
-      spring: `${oldSpring} -> ${newSpring}`,
-    })
+
+  const newState = {
+    ...state,
+    phil: {
+      ...state.phil,
+      season: newSeason,
+    },
+    session: {
+      ...state.session,
+      peakChaos: Math.max(state.session.peakChaos, newChaos),
+    },
   }
 
-  if (oldWinter !== newWinter || oldSpring !== newSpring) {
-    logStateChange('Season', `Winter: ${oldWinter} -> ${newWinter}, Spring: ${oldSpring} -> ${newSpring}`, {
-      reason: mod.reason,
-    })
+  // Log season state changes
+  const newLevel = getSeasonLevel(newState)
+  if (oldLevel !== newLevel) {
+    logStateChange('Season', `STATE CHANGE: ${oldLevel} -> ${newLevel}`)
+  }
 
-    const newState = {
-      ...state,
+  // Check for storm aftermath - surge back toward 50
+  if ((oldLevel === 'winter_storm' || oldLevel === 'spring_storm') &&
+      (newLevel !== 'winter_storm' && newLevel !== 'spring_storm')) {
+    // Storm passed, surge back toward baseline
+    const surgeAmount = newSeason < 50 ? 15 : -15
+    const surgedSeason = Math.max(0, Math.min(100, newSeason + surgeAmount))
+    logStateChange('Season', `STORM PASSED - Surging toward baseline`, {
+      season: `${newSeason} -> ${surgedSeason}`,
+    })
+    return {
+      ...newState,
       phil: {
-        ...state.phil,
-        winter: newWinter,
-        spring: newSpring,
-      },
-      session: {
-        ...state.session,
-        peakChaos: Math.max(state.session.peakChaos, newWinter),
-        peakOrder: Math.max(state.session.peakOrder, newSpring),
+        ...newState.phil,
+        season: surgedSeason,
       },
     }
-
-    // Log season state changes
-    const newLevel = getSeasonLevel(newState)
-    if (oldLevel !== newLevel) {
-      logStateChange('Season', `STATE CHANGE: ${oldLevel} -> ${newLevel}`)
-    }
-
-    return newState
   }
 
-  return state
+  return newState
 }
 
-// Natural decay toward equilibrium (50/50)
+// Natural decay toward equilibrium (50) with MOMENTUM
+// Higher chaos = slower decay (sticky extreme states)
 export function applySeasonDecay(state: SessionState): SessionState {
-  const { winter, spring } = state.phil
-  let newWinter = winter
-  let newSpring = spring
+  const { season } = state.phil
 
-  // Decay toward 50 by 1 point
-  if (winter > 50) newWinter = Math.max(50, winter - 1)
-  else if (winter < 50) newWinter = Math.min(50, winter + 1)
+  if (season === 50) return state
 
-  if (spring > 50) newSpring = Math.max(50, spring - 1)
-  else if (spring < 50) newSpring = Math.min(50, spring + 1)
+  // Calculate current chaos
+  const chaos = Math.abs(season - 50) / 50
 
-  if (newWinter !== winter || newSpring !== spring) {
+  // Momentum: higher chaos = slower decay
+  // At 0% chaos: full decay (1 point)
+  // At 50% chaos: half decay (0.5 points)
+  // At 100% chaos: quarter decay (0.25 points)
+  const decayRate = 1 - (chaos * 0.75)
+
+  // Decay toward 50
+  let newSeason = season
+  if (season > 50) {
+    newSeason = Math.max(50, season - decayRate)
+  } else {
+    newSeason = Math.min(50, season + decayRate)
+  }
+
+  // Round to avoid floating point issues
+  newSeason = Math.round(newSeason * 10) / 10
+
+  if (newSeason !== season) {
     return {
       ...state,
       phil: {
         ...state.phil,
-        winter: newWinter,
-        spring: newSpring,
+        season: newSeason,
       },
     }
   }
@@ -693,10 +656,18 @@ export function processPhilMessage(
   messageText: string,
   sentiment: 'positive' | 'negative' | 'neutral' = 'neutral'
 ): SessionState {
-  let newState = state
-
-  // Deplete energy
-  newState = depleteEnergy(newState, messageText.length)
+  let newState = {
+    ...state,
+    phil: {
+      ...state.phil,
+      lastSpokeAt: Date.now(),
+      messageCount: state.phil.messageCount + 1,
+    },
+    session: {
+      ...state.session,
+      philMessages: state.session.philMessages + 1,
+    },
+  }
 
   // Update mood based on how the interaction went
   newState = transitionMood(newState, sentiment)
@@ -730,26 +701,23 @@ export function processIncomingMessage(
 ): SessionState {
   let newState = state
 
-  // Recharge energy (silence was broken, calculate recharge first)
-  newState = rechargeEnergy(newState)
-
   // Apply effects based on sender type
   if (senderType === 'chatter' && chatterType) {
-    // Use the new chatter tendency system with flip mechanic
+    // Use the new chatter tendency system with flip mechanic (updated for single-axis)
     const effect = calculateChatterEffect(chatterType as ChatterType, newState)
-    const changes = getChatterStateChanges(effect)
+    const seasonChange = getChatterSeasonChange(effect)
 
     // Apply changes
-    const oldWinter = newState.phil.winter
-    const oldSpring = newState.phil.spring
-    const newWinter = Math.max(0, Math.min(100, oldWinter + changes.winterChange))
-    const newSpring = Math.max(0, Math.min(100, oldSpring + changes.springChange))
+    const oldSeason = newState.phil.season
+    const newSeason = Math.max(0, Math.min(100, oldSeason + seasonChange))
 
-    if (oldWinter !== newWinter || oldSpring !== newSpring) {
+    if (oldSeason !== newSeason) {
+      const oldChaos = Math.abs(oldSeason - 50) / 50
+      const newChaos = Math.abs(newSeason - 50) / 50
       logStateChange('Chatter', `${chatterType} effect`, {
         effect: effect.reason,
-        winter: `${oldWinter} -> ${newWinter}`,
-        spring: `${oldSpring} -> ${newSpring}`,
+        season: `${oldSeason} -> ${newSeason}`,
+        chaos: `${Math.round(oldChaos * 100)}% -> ${Math.round(newChaos * 100)}%`,
         flipped: effect.didFlip,
       })
 
@@ -757,8 +725,7 @@ export function processIncomingMessage(
         ...newState,
         phil: {
           ...newState.phil,
-          winter: newWinter,
-          spring: newSpring,
+          season: newSeason,
         },
       }
     }
@@ -778,6 +745,39 @@ export function processIncomingMessage(
   }
 
   return newState
+}
+
+// Convert chatter effect to single-axis season change
+function getChatterSeasonChange(effect: ReturnType<typeof calculateChatterEffect>): number {
+  // Base magnitude for chatter effects (INCREASED for more chaos drift)
+  const BASE_MAGNITUDE = 10
+
+  // Apply chaos effect
+  const chaosMagnitude = Math.abs(effect.chaosChange) * BASE_MAGNITUDE
+
+  // Direction: positive chaosChange = push away from 50
+  // flavorDirection determines which way to push
+  let seasonChange = 0
+
+  if (effect.chaosChange > 0) {
+    // Increasing chaos - push away from 50
+    if (effect.flavorDirection === 'winter') {
+      seasonChange = -chaosMagnitude // Push toward 0
+    } else if (effect.flavorDirection === 'spring') {
+      seasonChange = chaosMagnitude // Push toward 100
+    } else {
+      // Neutral - push toward current dominant direction
+      seasonChange = Math.random() < 0.5 ? -chaosMagnitude * 0.5 : chaosMagnitude * 0.5
+    }
+  } else {
+    // Decreasing chaos (order) - push toward 50
+    // Direction doesn't matter for order - always toward center
+    seasonChange = 0 // The decay function handles order naturally
+    // But give a small nudge toward 50
+    // This will be handled by the caller checking current season
+  }
+
+  return Math.round(seasonChange)
 }
 
 // ============================================
@@ -879,73 +879,67 @@ export function analyzeMessageSentiment(message: string): MessageSentiment {
   return { chaos: 'neutral', flavor: 'neutral' }
 }
 
-// Apply user message effect based on sentiment
+// Apply user message effect based on sentiment (SINGLE-AXIS)
 function applyUserMessageEffect(
   state: SessionState,
   sentiment: MessageSentiment
 ): SessionState {
-  // Base magnitudes for user message effects
-  const CHAOS_MAGNITUDE = 5
-  const FLAVOR_MAGNITUDE = 3
+  // INCREASED magnitudes for more chaos drift
+  const CHAOS_MAGNITUDE = 8
+  const FLAVOR_MAGNITUDE = 5
 
-  let winterChange = 0
-  let springChange = 0
+  let seasonChange = 0
 
   // Apply chaos effect
   if (sentiment.chaos === 'up') {
-    // Push away from 50
+    // Push away from 50 in the flavor direction
     if (sentiment.flavor === 'winter') {
-      winterChange += CHAOS_MAGNITUDE
+      seasonChange -= CHAOS_MAGNITUDE // Push toward 0
     } else if (sentiment.flavor === 'spring') {
-      springChange += CHAOS_MAGNITUDE
+      seasonChange += CHAOS_MAGNITUDE // Push toward 100
     } else {
-      // Neutral chaos - slight push to dominant side
-      if (state.phil.winter > state.phil.spring) {
-        winterChange += CHAOS_MAGNITUDE * 0.5
+      // Neutral chaos - push toward current dominant side
+      if (state.phil.season < 50) {
+        seasonChange -= CHAOS_MAGNITUDE * 0.5 // Continue winter direction
       } else {
-        springChange += CHAOS_MAGNITUDE * 0.5
+        seasonChange += CHAOS_MAGNITUDE * 0.5 // Continue spring direction
       }
     }
   } else if (sentiment.chaos === 'down') {
     // Push toward 50 (order)
-    if (state.phil.winter > 50) {
-      winterChange -= CHAOS_MAGNITUDE * 0.5
-    } else if (state.phil.winter < 50) {
-      winterChange += CHAOS_MAGNITUDE * 0.3
-    }
-    if (state.phil.spring > 50) {
-      springChange -= CHAOS_MAGNITUDE * 0.5
-    } else if (state.phil.spring < 50) {
-      springChange += CHAOS_MAGNITUDE * 0.3
+    if (state.phil.season > 50) {
+      seasonChange -= CHAOS_MAGNITUDE * 0.5 // Push back toward 50
+    } else if (state.phil.season < 50) {
+      seasonChange += CHAOS_MAGNITUDE * 0.5 // Push back toward 50
     }
   }
 
   // Apply flavor direction
   if (sentiment.flavor === 'winter') {
-    winterChange += FLAVOR_MAGNITUDE
+    seasonChange -= FLAVOR_MAGNITUDE // Push toward winter (0)
   } else if (sentiment.flavor === 'spring') {
-    springChange += FLAVOR_MAGNITUDE
+    seasonChange += FLAVOR_MAGNITUDE // Push toward spring (100)
   }
 
   // Apply changes if any
-  if (winterChange !== 0 || springChange !== 0) {
-    const newWinter = Math.max(0, Math.min(100, state.phil.winter + winterChange))
-    const newSpring = Math.max(0, Math.min(100, state.phil.spring + springChange))
+  if (seasonChange !== 0) {
+    const oldSeason = state.phil.season
+    const newSeason = Math.max(0, Math.min(100, oldSeason + seasonChange))
 
-    if (newWinter !== state.phil.winter || newSpring !== state.phil.spring) {
+    if (newSeason !== oldSeason) {
+      const oldChaos = Math.abs(oldSeason - 50) / 50
+      const newChaos = Math.abs(newSeason - 50) / 50
       logStateChange('User', `Message sentiment: ${sentiment.trigger || 'neutral'}`, {
-        chaos: sentiment.chaos,
+        chaos: `${Math.round(oldChaos * 100)}% -> ${Math.round(newChaos * 100)}%`,
         flavor: sentiment.flavor,
-        winter: `${state.phil.winter} -> ${newWinter}`,
-        spring: `${state.phil.spring} -> ${newSpring}`,
+        season: `${oldSeason} -> ${newSeason}`,
       })
 
       return {
         ...state,
         phil: {
           ...state.phil,
-          winter: newWinter,
-          spring: newSpring,
+          season: newSeason,
         },
       }
     }

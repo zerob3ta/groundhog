@@ -49,9 +49,8 @@ export interface SessionState {
   // Phil's internal state
   phil: {
     mood: string // Current mood (evolves, doesn't reset)
-    energy: number // 0-100, depletes when talking, recharges in silence
-    winter: number // 0-100, chaos/darkness/despair
-    spring: number // 0-100, order/warmth/hope
+    season: number // 0-100, single axis: 0=full winter, 50=baseline, 100=full spring
+    // Chaos = Math.abs(season - 50) / 50, Flavor = season < 50 ? 'winter' : 'spring'
     currentObsession: string | null // Topic Phil is fixated on
     obsessionStrength: number // How fixated (0-100)
     lastSpokeAt: number // Timestamp of last Phil message
@@ -76,8 +75,7 @@ export interface SessionState {
     totalMessages: number
     philMessages: number
     longestSilence: number
-    peakChaos: number // Highest chaos level reached (calculated from winter/spring)
-    peakOrder: number // Lowest chaos level reached (most stable)
+    peakChaos: number // Highest chaos level reached (0-1, distance from baseline 50)
   }
 
   // Shock system state
@@ -104,9 +102,7 @@ export function createInitialSessionState(): SessionState {
   return {
     phil: {
       mood: startingMood,
-      energy: 80 + Math.floor(Math.random() * 20), // Start with 80-100 energy
-      winter: 50, // Start balanced
-      spring: 50, // Start balanced
+      season: 50, // Start at baseline (50 = balanced/ordered)
       currentObsession: null,
       obsessionStrength: 0,
       lastSpokeAt: Date.now(),
@@ -122,40 +118,38 @@ export function createInitialSessionState(): SessionState {
       totalMessages: 0,
       philMessages: 0,
       longestSilence: 0,
-      peakChaos: 50,
-      peakOrder: 50,
+      peakChaos: 0, // Start at 0 chaos (baseline)
     },
   }
 }
 
-// Get the season state label based on winter/spring balance
+// Get the season state label based on single-axis season value
+// season: 0 = full winter, 50 = baseline, 100 = full spring
+// chaos = distance from 50 (0-50 range, normalized to 0-1)
 export type SeasonLevel =
   | 'spring_dominant'
   | 'balanced'
   | 'winter_approaching'
   | 'deep_winter'
   | 'winter_storm'
+  | 'spring_storm' // New: equivalent chaos level but spring-flavored
 
 export function getSeasonLevel(state: SessionState): SeasonLevel {
-  const { winter, spring } = state.phil
-  const diff = winter - spring
+  const { season } = state.phil
+  const chaos = Math.abs(season - 50) / 50 // 0-1 scale
+  const isWinter = season < 50
 
-  if (winter > 85) return 'winter_storm'
-  if (diff > 40) return 'deep_winter'
-  if (diff > 20) return 'winter_approaching'
-  if (diff < -20) return 'spring_dominant'
+  // Chaos thresholds for season levels
+  if (chaos >= 0.85) {
+    return isWinter ? 'winter_storm' : 'spring_storm'
+  }
+  if (chaos >= 0.6) {
+    return isWinter ? 'deep_winter' : 'spring_dominant'
+  }
+  if (chaos >= 0.3) {
+    return isWinter ? 'winter_approaching' : 'spring_dominant'
+  }
   return 'balanced'
-}
-
-// Get energy level description
-export type EnergyLevel = 'high' | 'normal' | 'low' | 'exhausted'
-
-export function getEnergyLevel(state: SessionState): EnergyLevel {
-  const { energy } = state.phil
-  if (energy >= 80) return 'high'
-  if (energy >= 50) return 'normal'
-  if (energy >= 20) return 'low'
-  return 'exhausted'
 }
 
 // Logging helper for state changes
@@ -184,25 +178,26 @@ export function deserializeState(json: string): SessionState {
 // Get a summary of the current state for prompts
 export function getStateSummary(state: SessionState): string {
   const seasonLevel = getSeasonLevel(state)
-  const energyLevel = getEnergyLevel(state)
   const { phil, session } = state
+  const chaos = Math.abs(phil.season - 50) / 50
+  const flavor = phil.season < 50 ? 'winter' : phil.season > 50 ? 'spring' : 'balanced'
 
   const lines: string[] = []
 
-  // Mood and energy
+  // Mood
   lines.push(`Current mood: ${phil.mood}`)
-  lines.push(`Energy level: ${energyLevel} (${phil.energy}/100)`)
 
   // Season state
   const seasonDescriptions: Record<SeasonLevel, string> = {
-    spring_dominant: 'Spring is in the air - you\'re feeling unusually warm and engaged',
+    spring_dominant: 'Spring is in the air - you\'re feeling manic, grandiose, engaged',
     balanced: 'Normal energy - classic Phil behavior',
     winter_approaching: 'The cold is creeping in - you\'re getting darker, more cynical',
     deep_winter: 'Deep winter - existential dread is setting in, questioning everything',
     winter_storm: 'WINTER STORM - You\'re glitching. The script is failing. Say something real.',
+    spring_storm: 'SPRING STORM - Manic energy overload. Grandiose delusions. LEGENDARY MODE.',
   }
   lines.push(`Season: ${seasonDescriptions[seasonLevel]}`)
-  lines.push(`Winter/Spring balance: Winter ${phil.winter}, Spring ${phil.spring}`)
+  lines.push(`Season axis: ${phil.season}/100 (${flavor}, ${Math.round(chaos * 100)}% chaos)`)
 
   // Current obsession
   if (phil.currentObsession && phil.obsessionStrength > 30) {

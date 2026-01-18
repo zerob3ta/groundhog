@@ -17,9 +17,10 @@ export interface AutonomousEvent {
   type: AutonomousEventType
   prompt: string
   priority: 'high' | 'normal' | 'low' // high = can interrupt, low = only in silence
-  minWinterLevel?: number // Only fire if winter is above this
-  minEnergyLevel?: number // Only fire if energy is above this
-  maxEnergyLevel?: number // Only fire if energy is below this
+  minChaosLevel?: number // Only fire if chaos is above this (0-1 scale)
+  maxChaosLevel?: number // Only fire if chaos is below this (0-1 scale)
+  requireWinter?: boolean // Only fire if on winter side of axis (season < 50)
+  requireSpring?: boolean // Only fire if on spring side of axis (season > 50)
 }
 
 // Event definitions with prompts for Phil
@@ -35,7 +36,7 @@ Examples of what she might yell:
 - Something about dinner or chores
 Respond like you're annoyed but also kind of intimidated. Maybe yell back or mutter under your breath.]`,
     priority: 'high',
-    minEnergyLevel: 30,
+    maxChaosLevel: 0.8, // Not in extreme chaos
   },
   {
     type: 'phyllis_yells',
@@ -53,7 +54,8 @@ Respond like you're annoyed but also kind of intimidated. Maybe yell back or mut
     type: 'shadow_weird',
     prompt: `[SYSTEM: You and your shadow are having a moment. Staring at each other. Address the tension between you two.]`,
     priority: 'low',
-    minWinterLevel: 40,
+    minChaosLevel: 0.3, // Need some chaos for this existential moment
+    requireWinter: true, // Winter-flavored event
   },
 
   // Sudden memories
@@ -75,7 +77,7 @@ Trail off if you want. "Speaking of which, back in '57... actually never mind."]
 - Someone unexpected
 Share a quick (probably fake) story about it.]`,
     priority: 'low',
-    minEnergyLevel: 40,
+    maxChaosLevel: 0.6, // Not when too chaotic
   },
 
   // Environmental
@@ -105,7 +107,7 @@ Keep it brief - just acknowledge it and maybe be paranoid about it.]`,
 - "Someone just sent me something I can't unsee."
 Be mysterious about it. Don't reveal details.]`,
     priority: 'normal',
-    minEnergyLevel: 30,
+    maxChaosLevel: 0.8, // Not in extreme chaos
   },
 
   // Inner Circle
@@ -120,15 +122,16 @@ Be brief but hint at the weird cult-like nature of the Inner Circle.]`,
     priority: 'low',
   },
 
-  // Existential (only in deep winter)
+  // Existential (only when chaotic toward winter)
   {
     type: 'existential',
     prompt: `[SYSTEM: An existential thought just hit you. 147 years is a long time. You've seen so much. For just a moment, let the weight of it show. Then recover quickly - can't let them see you vulnerable.]`,
     priority: 'low',
-    minWinterLevel: 50,
+    minChaosLevel: 0.35, // Need moderate chaos
+    requireWinter: true, // Winter-flavored (existential)
   },
 
-  // Self-promotion / plugs (high energy)
+  // Self-promotion / plugs (low chaos = stable)
   {
     type: 'self_promotion',
     prompt: `[SYSTEM: Time for some self-promotion. Maybe:
@@ -138,20 +141,26 @@ Be brief but hint at the weird cult-like nature of the Inner Circle.]`,
 - Remind people you're a legend
 Keep it brief but cocky.]`,
     priority: 'low',
-    minEnergyLevel: 50,
+    maxChaosLevel: 0.5, // Only when relatively stable
   },
 ]
 
 // Get a random autonomous event based on current state
+// seasonLevel: 0-100 (0=full winter, 50=baseline, 100=full spring)
+// chaosLevel: 0-1 (derived from |season-50|/50)
 export function getRandomAutonomousEvent(
-  winterLevel: number,
-  energyLevel: number
+  seasonLevel: number,
+  chaosLevel: number
 ): AutonomousEvent | null {
+  const isWinter = seasonLevel < 50
+  const isSpring = seasonLevel > 50
+
   // Filter events based on state requirements
   const availableEvents = AUTONOMOUS_EVENTS.filter(event => {
-    if (event.minWinterLevel && winterLevel < event.minWinterLevel) return false
-    if (event.minEnergyLevel && energyLevel < event.minEnergyLevel) return false
-    if (event.maxEnergyLevel && energyLevel > event.maxEnergyLevel) return false
+    if (event.minChaosLevel && chaosLevel < event.minChaosLevel) return false
+    if (event.maxChaosLevel && chaosLevel > event.maxChaosLevel) return false
+    if (event.requireWinter && !isWinter) return false
+    if (event.requireSpring && !isSpring) return false
     return true
   })
 
@@ -172,19 +181,19 @@ export function getRandomAutonomousEvent(
   return selected
 }
 
-// Get the timing for next event (30-90 seconds base, modified by energy)
-export function getNextEventDelay(energyLevel: number): number {
-  // Lower energy = less frequent events
+// Get the timing for next event (30-90 seconds base, modified by chaos)
+export function getNextEventDelay(chaosLevel: number): number {
+  // Higher chaos = more frequent events
   const baseDelay = 30000 + Math.random() * 60000 // 30-90 seconds
-  const energyMultiplier = energyLevel < 30 ? 2 : energyLevel > 70 ? 0.7 : 1
-  return baseDelay * energyMultiplier
+  const chaosMultiplier = chaosLevel > 0.6 ? 0.7 : chaosLevel < 0.2 ? 1.3 : 1
+  return baseDelay * chaosMultiplier
 }
 
 // Check if event should fire (probability based on time since last event)
 export function shouldFireEvent(
   timeSinceLastEvent: number,
-  winterLevel: number,
-  energyLevel: number
+  seasonLevel: number,
+  chaosLevel: number
 ): boolean {
   // Base chance increases over time
   // At 30 seconds: ~10% chance
@@ -192,11 +201,12 @@ export function shouldFireEvent(
   // At 90 seconds: ~50% chance
   const baseChance = Math.min(0.5, timeSinceLastEvent / 180000)
 
-  // Modify by state
+  // Modify by state (single-axis)
   let chance = baseChance
-  if (winterLevel > 60) chance *= 1.3 // More events in winter
-  if (energyLevel < 30) chance *= 0.5 // Fewer events when tired
-  if (energyLevel > 70) chance *= 1.2 // More events when energetic
+  // More events when chaotic (either direction)
+  if (chaosLevel > 0.6) chance *= 1.3 // High chaos = more events
+  if (chaosLevel > 0.4) chance *= 1.1 // Moderate chaos = slightly more events
+  if (chaosLevel < 0.2) chance *= 0.8 // Fewer events when stable
 
   return Math.random() < chance
 }

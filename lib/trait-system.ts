@@ -4,28 +4,27 @@
 import type { SessionState } from './session-state'
 
 // ============================================
-// CHAOS CALCULATION
+// CHAOS CALCULATION (Single-Axis Model)
 // ============================================
+// season: 0 = full winter, 50 = baseline/order, 100 = full spring
+// chaos = distance from 50, normalized to 0-1
+// flavor is automatically derived from which side of 50 we're on
 
-// Chaos is the distance from baseline (50/50 winter/spring)
+// Chaos is the distance from baseline (season = 50)
 // 0 = pure baseline Phil, 1 = maximum chaos
 export function calculateChaos(state: SessionState): number {
-  const { winter, spring } = state.phil
-  // Chaos = how far winter OR spring is from 50
-  const winterDistance = Math.abs(winter - 50)
-  const springDistance = Math.abs(spring - 50)
-  // Take the larger distance, normalize to 0-1
-  return Math.max(winterDistance, springDistance) / 50
+  const { season } = state.phil
+  // Chaos = how far season is from 50, normalized to 0-1
+  return Math.abs(season - 50) / 50
 }
 
 // Get the flavor direction when chaos is present
 // Returns 'winter' | 'spring' | 'balanced'
 export function getChaosFlavor(state: SessionState): 'winter' | 'spring' | 'balanced' {
-  const { winter, spring } = state.phil
-  const diff = winter - spring
-  if (diff > 10) return 'winter'
-  if (diff < -10) return 'spring'
-  return 'balanced'
+  const { season } = state.phil
+  // Small buffer around 50 for "balanced"
+  if (season >= 45 && season <= 55) return 'balanced'
+  return season < 50 ? 'winter' : 'spring'
 }
 
 // ============================================
@@ -35,11 +34,12 @@ export function getChaosFlavor(state: SessionState): 'winter' | 'spring' | 'bala
 export type RigidityTier = 'sacred' | 'core' | 'flexible' | 'fluid'
 
 // At what chaos level does each tier start to be affected?
+// AGGRESSIVE THRESHOLDS - traits drift much more easily now
 export const TIER_THRESHOLDS: Record<RigidityTier, number> = {
-  sacred: 0.9,    // Almost never changes (only at extreme chaos)
-  core: 0.6,      // Only at high chaos
-  flexible: 0.3,  // Drifts more easily
-  fluid: 0.0,     // Changes readily
+  sacred: 0.70,   // Can drift at 70% chaos (was 90%)
+  core: 0.35,     // Drifts at moderate chaos (was 60%)
+  flexible: 0.15, // Drifts with slight deviation (was 30%)
+  fluid: 0.0,     // Changes immediately
 }
 
 // How much does each tier drift when above threshold?

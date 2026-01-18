@@ -2,7 +2,8 @@
 // Used for both prompt engineering and animation selection
 
 import type { SessionState } from './session-state'
-import { getSeasonLevel, getEnergyLevel } from './session-state'
+import { getSeasonLevel } from './session-state'
+import { calculateChaos } from './trait-system'
 
 // ============================================
 // EMOTION TYPES
@@ -33,20 +34,21 @@ export interface EmotionalState {
 // ============================================
 
 export function deriveEmotionalState(state: SessionState): EmotionalState {
-  const { winter, spring, energy } = state.phil
+  const { season } = state.phil
   const seasonLevel = getSeasonLevel(state)
-  const energyLevel = getEnergyLevel(state)
+  const chaos = calculateChaos(state)
+  const isSpring = season > 50 // spring side of the axis
 
-  // Map physical state from energy
+  // Map physical state from chaos level
+  // Higher chaos = more unstable physical state
   let physicalState: PhysicalState
-  if (energy >= 70) {
-    physicalState = 'energized'
-  } else if (energy >= 40) {
-    physicalState = 'normal'
-  } else if (energy >= 20) {
-    physicalState = 'tired'
+  if (chaos > 0.7) {
+    // Extreme chaos can go either way
+    physicalState = isSpring ? 'energized' : 'exhausted'
+  } else if (chaos > 0.4) {
+    physicalState = isSpring ? 'energized' : 'tired'
   } else {
-    physicalState = 'exhausted'
+    physicalState = 'normal'
   }
 
   // Map emotion from season level
@@ -56,10 +58,17 @@ export function deriveEmotionalState(state: SessionState): EmotionalState {
 
   switch (seasonLevel) {
     case 'winter_storm':
-      // Extreme chaos state
+      // Extreme winter chaos state
       primary = physicalState === 'exhausted' ? 'depressed' : 'manic'
       intensity = 'overwhelming'
       secondary = 'anxious'
+      break
+
+    case 'spring_storm':
+      // Extreme spring chaos state (manic)
+      primary = 'manic'
+      intensity = 'overwhelming'
+      secondary = 'hostile' // Aggressive manic energy
       break
 
     case 'deep_winter':
@@ -82,7 +91,7 @@ export function deriveEmotionalState(state: SessionState): EmotionalState {
       break
 
     case 'spring_dominant':
-      // Unusually positive
+      // High spring energy
       if (physicalState === 'energized') {
         primary = 'manic'
         intensity = 'moderate'
@@ -108,15 +117,11 @@ export function deriveEmotionalState(state: SessionState): EmotionalState {
       break
   }
 
-  // Adjust intensity based on extreme values
-  if (winter > 90) {
+  // Adjust intensity based on extreme season values (single-axis)
+  if (season < 10 || season > 90) {
+    // Extreme ends of the axis
     intensity = 'overwhelming'
-  } else if (winter > 75 && intensity !== 'overwhelming') {
-    intensity = 'intense'
-  }
-
-  // Spring can moderate intensity
-  if (spring > 70 && intensity === 'overwhelming') {
+  } else if ((season < 25 || season > 75) && intensity !== 'overwhelming') {
     intensity = 'intense'
   }
 

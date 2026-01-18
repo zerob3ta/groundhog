@@ -532,7 +532,8 @@ export function calculateChatterEffect(
 ): ChatterEffect {
   const tendency = CHATTER_TENDENCIES[chatterType]
   const chaos = calculateChaos(state)
-  const { winter, spring } = state.phil
+  const { season } = state.phil
+  const isWinterSide = season < 50
 
   // Start with base tendency
   let chaosChange = tendency.chaosTendency
@@ -548,7 +549,7 @@ export function calculateChatterEffect(
     // Calculate flip probability
     let flipChance = BASE_FLIP_CHANCE
 
-    // Add modifiers based on Phil's state
+    // Add modifiers based on Phil's state (single-axis)
     const chaosPercent = chaos * 100
     if (chaosPercent > EXTREME_CHAOS_THRESHOLD) {
       flipChance += STATE_FLIP_MODIFIER
@@ -556,11 +557,12 @@ export function calculateChatterEffect(
     if (chaosPercent < LOW_CHAOS_THRESHOLD) {
       flipChance += STATE_FLIP_MODIFIER
     }
-    if (winter > HEAVY_WINTER_THRESHOLD) {
-      flipChance += STATE_FLIP_MODIFIER
+    // Check for heavy winter (season < 15) or heavy spring (season > 85)
+    if (season < 15) {
+      flipChance += STATE_FLIP_MODIFIER // Deep in winter territory
     }
-    if (spring > HEAVY_SPRING_THRESHOLD) {
-      flipChance += STATE_FLIP_MODIFIER
+    if (season > 85) {
+      flipChance += STATE_FLIP_MODIFIER // Deep in spring territory
     }
 
     // Roll for flip
@@ -590,17 +592,16 @@ export function calculateChatterEffect(
   }
 }
 
-// Apply chatter effect to state
-// Returns the magnitude of change to apply to winter/spring
+// Apply chatter effect to state (SINGLE-AXIS MODEL)
+// Returns the season change to apply (-100 to +100 range)
 export function getChatterStateChanges(
   effect: ChatterEffect
-): { winterChange: number; springChange: number } {
-  // Base magnitude for chatter effects
-  const BASE_CHAOS_MAGNITUDE = 8  // How much chaos/order changes winter/spring
-  const BASE_FLAVOR_MAGNITUDE = 5 // How much flavor direction matters
+): { seasonChange: number } {
+  // INCREASED magnitudes for more chaos drift
+  const BASE_CHAOS_MAGNITUDE = 10  // How much chaos/order changes season
+  const BASE_FLAVOR_MAGNITUDE = 6  // How much flavor direction matters
 
-  let winterChange = 0
-  let springChange = 0
+  let seasonChange = 0
 
   // Apply chaos effect (pushes away from or toward 50)
   const chaosMagnitude = Math.abs(effect.chaosChange) * BASE_CHAOS_MAGNITUDE
@@ -608,33 +609,28 @@ export function getChatterStateChanges(
   if (effect.chaosChange > 0) {
     // Increasing chaos - push away from 50 in the flavor direction
     if (effect.flavorDirection === 'winter') {
-      winterChange += chaosMagnitude
-      springChange -= chaosMagnitude * 0.3
+      seasonChange -= chaosMagnitude // Push toward 0 (winter)
     } else if (effect.flavorDirection === 'spring') {
-      springChange += chaosMagnitude
-      winterChange -= chaosMagnitude * 0.3
+      seasonChange += chaosMagnitude // Push toward 100 (spring)
     } else {
-      // Neutral - small push to both
-      winterChange += chaosMagnitude * 0.3
-      springChange += chaosMagnitude * 0.3
+      // Neutral - small random push
+      seasonChange += (Math.random() < 0.5 ? -1 : 1) * chaosMagnitude * 0.3
     }
   } else {
-    // Decreasing chaos (order) - push toward 50
-    // This is handled differently - we push toward center
-    winterChange -= Math.abs(effect.chaosChange) * BASE_CHAOS_MAGNITUDE * 0.5
-    springChange -= Math.abs(effect.chaosChange) * BASE_CHAOS_MAGNITUDE * 0.5
+    // Decreasing chaos (order) - handled by natural decay
+    // Just give a small nudge toward center
+    seasonChange = 0
   }
 
   // Apply flavor direction
   if (effect.flavorDirection === 'winter') {
-    winterChange += BASE_FLAVOR_MAGNITUDE
+    seasonChange -= BASE_FLAVOR_MAGNITUDE // Push toward winter (0)
   } else if (effect.flavorDirection === 'spring') {
-    springChange += BASE_FLAVOR_MAGNITUDE
+    seasonChange += BASE_FLAVOR_MAGNITUDE // Push toward spring (100)
   }
 
   return {
-    winterChange: Math.round(winterChange),
-    springChange: Math.round(springChange),
+    seasonChange: Math.round(seasonChange),
   }
 }
 

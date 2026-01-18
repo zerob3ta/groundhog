@@ -11,8 +11,12 @@ import { logStateChange } from './session-state'
 
 export type ShockEffect = {
   chaos: number      // Positive = more chaos, negative = order
-  winter?: number    // Positive = toward winter flavor
-  spring?: number    // Positive = toward spring flavor
+  // Direction: positive = toward spring (100), negative = toward winter (0)
+  // Optional - if not specified, chaos pushes in current direction
+  direction?: number
+  // Legacy fields for compatibility
+  winter?: number    // Positive = toward winter flavor (will be converted)
+  spring?: number    // Positive = toward spring flavor (will be converted)
 }
 
 export interface Shock {
@@ -260,8 +264,7 @@ export interface ShockResult {
   shock: Shock
   severity: ShockSeverity
   chaosChange: number
-  winterChange: number
-  springChange: number
+  seasonChange: number
 }
 
 // Pick and apply a random shock
@@ -275,43 +278,65 @@ export function triggerShock(state: SessionState): { newState: SessionState; res
 
   // Calculate actual changes based on severity
   // Base values: mild ~10-15, moderate ~20-30, severe ~40-50
-  const baseChaosMagnitude = 25  // This gets multiplied by effect and severity
-  const baseFlavorMagnitude = 20
+  const baseChaosMagnitude = 30  // INCREASED for more chaos drift
+  const baseDirectionMagnitude = 25
 
-  const chaosChange = Math.round(shock.effect.chaos * baseChaosMagnitude * multiplier.chaos)
-  const winterChange = Math.round((shock.effect.winter ?? 0) * baseFlavorMagnitude * multiplier.flavor)
-  const springChange = Math.round((shock.effect.spring ?? 0) * baseFlavorMagnitude * multiplier.flavor)
+  // Calculate chaos magnitude (affects how far from 50 we go)
+  const chaosAmount = Math.round(shock.effect.chaos * baseChaosMagnitude * multiplier.chaos)
 
-  // Apply to state
-  const newWinter = Math.max(0, Math.min(100, state.phil.winter + winterChange))
-  const newSpring = Math.max(0, Math.min(100, state.phil.spring + springChange))
-
-  // Chaos affects both - pushing away from 50 or toward 50
-  let adjustedWinter = newWinter
-  let adjustedSpring = newSpring
-
-  if (chaosChange > 0) {
-    // Increase chaos = push away from 50
-    if (adjustedWinter > 50) adjustedWinter = Math.min(100, adjustedWinter + chaosChange / 2)
-    else adjustedWinter = Math.max(0, adjustedWinter - chaosChange / 2)
-
-    if (adjustedSpring > 50) adjustedSpring = Math.min(100, adjustedSpring + chaosChange / 2)
-    else adjustedSpring = Math.max(0, adjustedSpring - chaosChange / 2)
-  } else {
-    // Decrease chaos (order) = push toward 50
-    const orderAmount = Math.abs(chaosChange)
-    if (adjustedWinter > 50) adjustedWinter = Math.max(50, adjustedWinter - orderAmount / 2)
-    else adjustedWinter = Math.min(50, adjustedWinter + orderAmount / 2)
-
-    if (adjustedSpring > 50) adjustedSpring = Math.max(50, adjustedSpring - orderAmount / 2)
-    else adjustedSpring = Math.min(50, adjustedSpring + orderAmount / 2)
+  // Determine direction - convert legacy winter/spring to direction
+  // winter > 0 means push toward 0 (negative direction)
+  // spring > 0 means push toward 100 (positive direction)
+  let direction = shock.effect.direction ?? 0
+  if (shock.effect.winter && !shock.effect.direction) {
+    direction -= shock.effect.winter
   }
+  if (shock.effect.spring && !shock.effect.direction) {
+    direction += shock.effect.spring
+  }
+
+  // Calculate season change
+  let seasonChange = 0
+  const currentSeason = state.phil.season
+
+  if (chaosAmount > 0) {
+    // Increasing chaos - push away from 50 in the direction
+    if (direction < 0) {
+      // Push toward winter (0)
+      seasonChange = -chaosAmount
+    } else if (direction > 0) {
+      // Push toward spring (100)
+      seasonChange = chaosAmount
+    } else {
+      // No direction specified - push further from 50 in current direction
+      if (currentSeason < 50) {
+        seasonChange = -chaosAmount
+      } else {
+        seasonChange = chaosAmount
+      }
+    }
+  } else if (chaosAmount < 0) {
+    // Decreasing chaos (order) - push toward 50
+    if (currentSeason < 50) {
+      seasonChange = Math.abs(chaosAmount)
+    } else {
+      seasonChange = -Math.abs(chaosAmount)
+    }
+  }
+
+  // Apply direction magnitude on top
+  seasonChange += Math.round(direction * baseDirectionMagnitude * multiplier.flavor)
+
+  // Calculate new season
+  const oldSeason = state.phil.season
+  const newSeason = Math.max(0, Math.min(100, oldSeason + seasonChange))
+  const oldChaos = Math.abs(oldSeason - 50) / 50
+  const newChaos = Math.abs(newSeason - 50) / 50
 
   // Log the shock
   logStateChange('Shock', `${severity.toUpperCase()}: ${shock.name}`, {
-    chaos: chaosChange > 0 ? `+${chaosChange}` : chaosChange,
-    winter: `${state.phil.winter} -> ${Math.round(adjustedWinter)}`,
-    spring: `${state.phil.spring} -> ${Math.round(adjustedSpring)}`,
+    chaos: `${Math.round(oldChaos * 100)}% -> ${Math.round(newChaos * 100)}%`,
+    season: `${oldSeason} -> ${newSeason}`,
     description: shock.description,
   })
 
@@ -319,8 +344,7 @@ export function triggerShock(state: SessionState): { newState: SessionState; res
     ...state,
     phil: {
       ...state.phil,
-      winter: Math.round(adjustedWinter),
-      spring: Math.round(adjustedSpring),
+      season: newSeason,
     },
     shockState: {
       lastShockAt: Date.now(),
@@ -338,9 +362,8 @@ export function triggerShock(state: SessionState): { newState: SessionState; res
     result: {
       shock,
       severity,
-      chaosChange,
-      winterChange,
-      springChange,
+      chaosChange: chaosAmount,
+      seasonChange,
     },
   }
 }

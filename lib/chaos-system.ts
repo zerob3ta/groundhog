@@ -8,7 +8,7 @@
 //   - Winter: paranoid, philosophical, bitter, confessional, dry, chaos agent
 //   - Spring: megalomaniac, aggressive, unsettlingly cheerful, scheming, hyperfixated
 
-import { SessionState, SeasonLevel, getSeasonLevel, EnergyLevel, getEnergyLevel } from './session-state'
+import { SessionState, SeasonLevel, getSeasonLevel } from './session-state'
 import { calculateChaos, getChaosFlavor, buildTraitPrompt, calculateEffectiveTraits } from './trait-system'
 
 // ============================================
@@ -20,7 +20,6 @@ export function getChaosLevelPrompt(state: SessionState): string {
   const chaos = calculateChaos(state)
   const flavor = getChaosFlavor(state)
   const effective = calculateEffectiveTraits(state)
-  const { winter, spring } = state.phil
 
   // Build the trait-based prompt
   const traitPrompt = buildTraitPrompt(state)
@@ -84,13 +83,15 @@ IMPORTANT: This is rare territory. Make it count. Be unpredictable.
 `
   }
 
+  const { season } = state.phil
+
   return `
 ${chaosInstructions}
 
 ## CURRENT STATE
 Chaos Level: ${Math.round(chaos * 100)}%
 Flavor: ${flavor === 'winter' ? 'WINTER (dark, internal, existential)' : flavor === 'spring' ? 'SPRING (manic, external, grandiose)' : 'BALANCED (unstable)'}
-Winter: ${winter}/100, Spring: ${spring}/100
+Season Axis: ${season}/100 (0=full winter, 50=baseline, 100=full spring)
 
 ${traitPrompt}
 `
@@ -104,56 +105,6 @@ ${traitPrompt}
 export function getSeasonPrompt(state: SessionState): string {
   // Use the new chaos-level system
   return getChaosLevelPrompt(state)
-}
-
-// ============================================
-// ENERGY-BASED MODIFIERS
-// ============================================
-
-export function getEnergyPrompt(state: SessionState): string {
-  const level = getEnergyLevel(state)
-  const { energy } = state.phil
-
-  const prompts: Record<EnergyLevel, string> = {
-    high: `
-## ENERGY: HIGH (${energy}/100)
-You're feeling it today. Full tank.
-- Willing to go on tangents
-- Longer, more elaborate responses when inspired
-- Actually engaging with the conversation
-- Might tell a story or drop some lore
-`,
-
-    normal: `
-## ENERGY: NORMAL (${energy}/100)
-Standard operating mode.
-- Normal Phil responses
-- Not too long, not too short
-`,
-
-    low: `
-## ENERGY: RUNNING LOW (${energy}/100)
-You're getting tired. This streaming shit is exhausting.
-- Shorter responses
-- More dismissive
-- "I don't have the energy for this"
-- Might complain about being tired
-- Yawning between sentences
-`,
-
-    exhausted: `
-## ENERGY: EXHAUSTED (${energy}/100)
-You're running on fumes. Barely holding it together.
-- Extremely short responses
-- "...yeah" / "sure" / "whatever" energy
-- Might just trail off
-- Existential fatigue
-- "147 years and I'm doing THIS"
-- Could go silent for a bit
-`,
-  }
-
-  return prompts[level]
 }
 
 // ============================================
@@ -258,11 +209,8 @@ ${facts.join('\n')}
 export function getFullStatePrompt(state: SessionState): string {
   const parts: string[] = []
 
-  // Season state (always included)
+  // Season state (always included) - includes chaos level
   parts.push(getSeasonPrompt(state))
-
-  // Energy state (always included)
-  parts.push(getEnergyPrompt(state))
 
   // Mood
   parts.push(`

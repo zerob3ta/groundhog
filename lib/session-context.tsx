@@ -5,14 +5,11 @@ import {
   createInitialSessionState,
   type SessionState,
   getSeasonLevel,
-  getEnergyLevel,
   logStateChange,
 } from './session-state'
 
 interface SessionDisplayState {
-  winter: number
-  spring: number
-  energy: number
+  season: number // 0-100: 0=full winter, 50=baseline, 100=full spring
   mood: string
 }
 
@@ -35,9 +32,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Display state for the meter (subset of full state)
   const [displayState, setDisplayState] = useState<SessionDisplayState>({
-    winter: 50,
-    spring: 50,
-    energy: 85,
+    season: 50,
     mood: sessionState.phil.mood,
   })
 
@@ -47,9 +42,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const newState = updater(prev)
       // Sync display state
       setDisplayState({
-        winter: newState.phil.winter,
-        spring: newState.phil.spring,
-        energy: newState.phil.energy,
+        season: newState.phil.season,
         mood: newState.phil.mood,
       })
       return newState
@@ -59,9 +52,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Sync display from external state
   const syncDisplayState = useCallback((state: SessionState) => {
     setDisplayState({
-      winter: state.phil.winter,
-      spring: state.phil.spring,
-      energy: state.phil.energy,
+      season: state.phil.season,
       mood: state.phil.mood,
     })
   }, [])

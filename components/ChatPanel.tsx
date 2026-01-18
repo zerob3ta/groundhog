@@ -8,9 +8,9 @@ import { PHIL_DEAD_AIR_FILLERS } from '@/lib/phil-corpus'
 import {
   type SessionState,
   getSeasonLevel,
-  getEnergyLevel,
   logStateChange,
 } from '@/lib/session-state'
+import { calculateChaos } from '@/lib/trait-system'
 import {
   processPhilMessage,
   processIncomingMessage,
@@ -196,12 +196,11 @@ export default function ChatPanel() {
 
       // Log current state summary
       const seasonLevel = getSeasonLevel(newState)
-      const energyLevel = getEnergyLevel(newState)
+      const chaos = calculateChaos(newState)
       logStateChange('State', 'After incoming message', {
         mood: newState.phil.mood,
-        energy: newState.phil.energy,
         season: seasonLevel,
-        energyLevel,
+        chaos: Math.round(chaos * 100),
       })
 
       return newState
@@ -235,12 +234,12 @@ export default function ChatPanel() {
 
       // Log current state
       const seasonLevel = getSeasonLevel(newState)
+      const chaos = Math.abs(newState.phil.season - 50) / 50
       logStateChange('State', 'After Phil response', {
         mood: newState.phil.mood,
-        energy: newState.phil.energy,
-        season: seasonLevel,
-        winter: newState.phil.winter,
-        spring: newState.phil.spring,
+        seasonLevel,
+        season: newState.phil.season,
+        chaos: `${Math.round(chaos * 100)}%`,
       })
 
       // Derive and sync emotional state for animations
@@ -974,12 +973,13 @@ export default function ChatPanel() {
       const timeSinceLastEvent = Date.now() - lastAutonomousEventRef.current
 
       // Check if we should fire an event
-      if (!shouldFireEvent(timeSinceLastEvent, state.phil.winter, state.phil.energy)) {
+      const chaos = calculateChaos(state)
+      if (!shouldFireEvent(timeSinceLastEvent, state.phil.season, chaos)) {
         return
       }
 
       // Get a random event based on current state
-      const event = getRandomAutonomousEvent(state.phil.winter, state.phil.energy)
+      const event = getRandomAutonomousEvent(state.phil.season, chaos)
       if (!event) return
 
       console.log(`[Event] Firing autonomous event: ${event.type}`)
@@ -1047,7 +1047,8 @@ export default function ChatPanel() {
     // Check for autonomous events every 10-20 seconds
     const scheduleNextCheck = () => {
       const state = sessionStateRef.current
-      const delay = getNextEventDelay(state.phil.energy) / 3 // Check more frequently, fire less often
+      const chaos = calculateChaos(state)
+      const delay = getNextEventDelay(chaos) / 3 // Check more frequently, fire less often
       autonomousEventRef.current = setTimeout(() => {
         checkForAutonomousEvent()
         scheduleNextCheck()
@@ -1070,11 +1071,11 @@ export default function ChatPanel() {
   // Log session state on mount
   useEffect(() => {
     const state = sessionStateRef.current
+    const chaos = calculateChaos(state)
     logStateChange('Session', 'Started', {
       mood: state.phil.mood,
-      energy: state.phil.energy,
-      winter: state.phil.winter,
-      spring: state.phil.spring,
+      season: state.phil.season,
+      chaos: `${Math.round(chaos * 100)}%`,
     })
   }, [])
 
