@@ -94,7 +94,7 @@ export default function SeasonMeter({ season, mood = 'neutral' }: SeasonMeterPro
     <div className="relative">
       <div
         className={`
-          relative overflow-hidden rounded-lg p-3
+          relative overflow-hidden rounded-lg p-2 lg:p-3
           bg-gradient-to-br from-gray-900/70 to-gray-800/50
           border border-white/10 backdrop-blur-sm
           transition-all duration-500
@@ -102,10 +102,10 @@ export default function SeasonMeter({ season, mood = 'neutral' }: SeasonMeterPro
         `}
       >
         {/* PRIMARY: Prediction Headline */}
-        <div className="mb-3">
-          <div className={`flex items-center gap-2 mb-2 ${prediction.color}`}>
-            <span className="text-xl">{prediction.emoji}</span>
-            <span className="text-lg font-bold tracking-wide">
+        <div className="mb-2 lg:mb-3">
+          <div className={`flex items-center gap-1.5 lg:gap-2 mb-1.5 lg:mb-2 ${prediction.color}`}>
+            <span className="text-base lg:text-xl">{prediction.emoji}</span>
+            <span className="text-sm lg:text-lg font-bold tracking-wide">
               {prediction.value !== null && `${prediction.value}% `}
               {prediction.label}
             </span>
@@ -159,33 +159,33 @@ export default function SeasonMeter({ season, mood = 'neutral' }: SeasonMeterPro
         </div>
 
         {/* SECONDARY + TERTIARY: Mood + Chaos Indicator */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+        <div className="flex items-center justify-between pt-1.5 lg:pt-2 border-t border-white/5">
           {/* Mood indicator */}
           <div
             className={`
-              flex items-center gap-1.5 px-2 py-1 rounded-md
+              flex items-center gap-1 lg:gap-1.5 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-md
               bg-gray-800/40 border border-white/5
               transition-all duration-300
               ${isMoodShifting ? 'scale-105 bg-purple-900/30 border-purple-500/30' : ''}
             `}
           >
-            <span className={`text-sm ${isMoodShifting ? 'animate-bounce' : ''}`}>
+            <span className={`text-xs lg:text-sm ${isMoodShifting ? 'animate-bounce' : ''}`}>
               {moodEmoji}
             </span>
-            <span className="text-[11px] text-gray-300 capitalize font-medium">
+            <span className="text-[9px] lg:text-[11px] text-gray-300 capitalize font-medium">
               {mood}
             </span>
           </div>
 
-          {/* Chaos/Order indicator (subtle) */}
-          <div className="flex items-center gap-1">
+          {/* Chaos/Order indicator (subtle) - hidden on smallest screens */}
+          <div className="hidden sm:flex items-center gap-1">
             {/* Chaos dots visualization */}
             <div className="flex gap-0.5">
               {[0, 0.25, 0.5, 0.75, 1].map((threshold, i) => (
                 <div
                   key={i}
                   className={`
-                    w-1.5 h-3 rounded-sm transition-all duration-500
+                    w-1 lg:w-1.5 h-2 lg:h-3 rounded-sm transition-all duration-500
                     ${chaos > threshold
                       ? chaos > 0.6
                         ? 'bg-purple-400/80'
@@ -197,12 +197,12 @@ export default function SeasonMeter({ season, mood = 'neutral' }: SeasonMeterPro
                     ${chaos > threshold && chaos > 0.6 ? 'animate-pulse' : ''}
                   `}
                   style={{
-                    height: `${8 + i * 2}px`,
+                    height: `${6 + i * 1.5}px`,
                   }}
                 />
               ))}
             </div>
-            <span className="text-[9px] text-gray-500 uppercase tracking-wider ml-1">
+            <span className="text-[8px] lg:text-[9px] text-gray-500 uppercase tracking-wider ml-1">
               {chaos < 0.2 ? 'stable' :
                chaos < 0.5 ? 'drift' :
                chaos < 0.7 ? 'chaos' : 'break'}

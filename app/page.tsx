@@ -24,7 +24,7 @@ function SeasonMeterOverlay() {
   const displayState = useBroadcastDisplay()
 
   return (
-    <div className="absolute top-4 right-4 z-10 w-64 lg:w-72">
+    <div className="absolute top-2 right-2 z-10 w-44 sm:w-56 lg:top-4 lg:right-4 lg:w-72">
       <SeasonMeter
         season={displayState.season}
         mood={displayState.mood}
@@ -160,7 +160,7 @@ export default function Home() {
           <SleepingOverlay />
 
           {/* 3D Scene Area */}
-          <div className="relative flex-1 lg:flex-[2] h-[40vh] lg:h-full">
+          <div className="relative flex-1 lg:flex-[2] h-[50vh] lg:h-full">
             {/* Top-left overlays */}
             <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
               <LiveBadge />
@@ -185,7 +185,7 @@ export default function Home() {
           </div>
 
           {/* Chat Panel */}
-          <div className="flex-1 lg:flex-[1] h-[60vh] lg:h-full border-t lg:border-t-0 lg:border-l border-stream-border">
+          <div className="flex-1 lg:flex-[1] h-[50vh] lg:h-full border-t lg:border-t-0 lg:border-l border-stream-border">
             <ChatPanelBroadcast />
           </div>
         </main>
