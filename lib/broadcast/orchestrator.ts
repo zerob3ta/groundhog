@@ -90,13 +90,13 @@ class BroadcastOrchestrator {
 
   // Priority-based cooldowns (ms)
   private readonly COOLDOWNS = {
-    user: 800,      // Real human typed something - respond fast
-    rant: 1500,     // Rant trigger - slightly longer to build tension
-    chatter: 2500,  // Random chatter engagement
+    user: 300,      // Real human typed something - respond FAST
+    rant: 1200,     // Rant trigger - slightly longer to build tension
+    chatter: 3000,  // Random chatter engagement - slower, users are priority
   }
 
   // Batch response delay (how long to wait for more messages before responding)
-  private readonly BATCH_DELAY = 500  // ms to wait for more messages to batch
+  private readonly BATCH_DELAY = 200  // ms to wait for more messages to batch
 
   // Broadcast function (set by stream route)
   private broadcastFn: ((event: BroadcastEvent) => Promise<void>) | null = null
@@ -209,6 +209,13 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingChatter) return
 
+    // PRIORITY: Skip chatter generation entirely if users are waiting
+    // This keeps the chat cleaner and lets Phil focus on real users
+    if (this.pendingUserMessages.length > 0) {
+      console.log('[Orchestrator] Skipping chatter generation - users waiting')
+      return
+    }
+
     this.isGeneratingChatter = true
 
     try {
@@ -318,6 +325,13 @@ class BroadcastOrchestrator {
 
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
+
+    // PRIORITY: Skip autonomous rants if users are waiting
+    if (this.pendingUserMessages.length > 0) {
+      console.log('[Rant] Skipping autonomous rant - users waiting')
+      this.scheduleNextResponse()
+      return
+    }
 
     // Cooldown check - use rant cooldown
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
@@ -446,6 +460,12 @@ class BroadcastOrchestrator {
       const memoryManager = state.getMemoryManager()
       const sessionState = state.getSessionState()
       const memoryContext = await buildMemoryPrompt(memoryManager, undefined, sessionState)
+
+      // INTERRUPT CHECK: If users showed up while we were building context, bail
+      if (this.pendingUserMessages.length > 0) {
+        console.log('[Orchestrator] Aborting chatter response - users arrived')
+        return  // Will trigger scheduleNextResponse in finally block
+      }
 
       // Generate Phil's response directly (no HTTP call)
       const { text: fullText } = await generatePhilResponse(
