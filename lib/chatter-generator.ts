@@ -16,6 +16,11 @@ import {
   buildCrossChatterPrompt,
 } from '@/lib/chatters'
 import type { SessionState, ChatterData } from '@/lib/session-state'
+import {
+  type RantAnalysis,
+  buildRantContext,
+  getRantReactionSuggestions,
+} from '@/lib/rant-detector'
 
 // Initialize AI client lazily
 let ai: GoogleGenAI | null = null
@@ -37,10 +42,14 @@ export interface ChatterGeneratorResult {
   message: string
 }
 
+// Current event topics for random injection
+const CURRENT_EVENT_TOPICS = ['sports', 'news', 'tech', 'celebrity', 'weather', 'politics', 'entertainment']
+
 export async function generateChatterMessage(
   recentMessages: ChatMessage[],
   sessionState?: SessionState,
-  preferredChatter?: string
+  preferredChatter?: string,
+  rantAnalysis?: RantAnalysis
 ): Promise<ChatterGeneratorResult> {
   // Pick chatter - prefer the escalation target if provided (70% chance)
   let chatter: Chatter
@@ -61,30 +70,53 @@ export async function generateChatterMessage(
   // Build enhanced prompt with anti-repetition and behavior angles
   let enhancedPrompt = basePrompt
 
-  // Add random behavior angle from pool
-  const behaviorAngle = getRandomBehaviorAngle(chatter.type)
-  enhancedPrompt += `\n\nBEHAVIOR: ${behaviorAngle}`
+  // If we have rant analysis, PRIORITIZE reacting to it
+  const isReactingToRant = rantAnalysis?.isRant
+  if (isReactingToRant) {
+    const rantContext = buildRantContext(rantAnalysis)
+    enhancedPrompt += `\n\n${rantContext}`
 
-  // Add situational modifier (30% chance)
-  const situation = getRandomSituation()
-  if (situation) {
-    enhancedPrompt += `\nSITUATION: ${situation}`
+    // Get type-specific reaction suggestions
+    const suggestions = getRantReactionSuggestions(rantAnalysis)
+    const relevantSuggestions = suggestions.filter(s => s.forTypes.includes(chatter.type))
+    if (relevantSuggestions.length > 0) {
+      const suggestion = relevantSuggestions[Math.floor(Math.random() * relevantSuggestions.length)]
+      enhancedPrompt += `\n\n💡 SUGGESTED REACTION: ${suggestion.action}`
+    }
   }
 
-  // NEW: Add hot button topic (40% chance for certain types)
-  const hotButton = getHotButtonTopic(chatter.type)
-  if (hotButton) {
-    enhancedPrompt += `\n\n🔥 HOT BUTTON: Bring up "${hotButton.topic}" - this will get a reaction from Phil!`
-    console.log(`[Chatter] ${chatter.username} pressing hot button: ${hotButton.topic}`)
+  // Add random behavior angle from pool (lower priority if reacting to rant)
+  let behaviorAngle: string | null = null
+  if (!isReactingToRant || Math.random() < 0.3) {
+    behaviorAngle = getRandomBehaviorAngle(chatter.type)
+    enhancedPrompt += `\n\nBEHAVIOR: ${behaviorAngle}`
   }
 
-  // NEW: Add provocative behavior (30% chance)
+  // Add situational modifier (30% chance, skip if reacting to rant)
+  let situation: string | null = null
+  if (!isReactingToRant) {
+    situation = getRandomSituation()
+    if (situation) {
+      enhancedPrompt += `\nSITUATION: ${situation}`
+    }
+  }
+
+  // Add hot button topic (40% chance for certain types, skip if reacting to rant)
+  if (!isReactingToRant) {
+    const hotButton = getHotButtonTopic(chatter.type)
+    if (hotButton) {
+      enhancedPrompt += `\n\n🔥 HOT BUTTON: Bring up "${hotButton.topic}" - this will get a reaction from Phil!`
+      console.log(`[Chatter] ${chatter.username} pressing hot button: ${hotButton.topic}`)
+    }
+  }
+
+  // Add provocative behavior (30% chance)
   const provocative = getProvocativeBehavior()
   if (provocative) {
     enhancedPrompt += `\n\n⚡ PROVOCATIVE: ${provocative}`
   }
 
-  // NEW: Add cross-chatter drama (25% chance)
+  // Add cross-chatter drama (25% chance)
   const crossChatterDrama = buildCrossChatterPrompt(recentMessages, chatter)
   if (crossChatterDrama) {
     enhancedPrompt += crossChatterDrama
@@ -98,12 +130,20 @@ export async function generateChatterMessage(
     }
   }
 
-  // Add context awareness (Phil's mood, other chatters, etc.)
+  // Add context awareness (Phil's mood, other chatters, etc.) - INCREASED RATE
+  // 70% chance to reference Phil when he just spoke (up from 40%)
   if (sessionState) {
-    const contextAwareness = buildContextAwareness(sessionState, recentMessages)
+    const contextAwareness = buildContextAwareness(sessionState, recentMessages, isReactingToRant ? 0.9 : 0.7)
     if (contextAwareness) {
       enhancedPrompt += contextAwareness
     }
+  }
+
+  // 30% chance to add a current event prompt (enables search grounding awareness)
+  if (!isReactingToRant && Math.random() < 0.3) {
+    const topic = CURRENT_EVENT_TOPICS[Math.floor(Math.random() * CURRENT_EVENT_TOPICS.length)]
+    enhancedPrompt += `\n\n📰 OPTIONAL: You could bring up something current about ${topic} - like a recent news story, sports result, or trending topic. Make it feel natural for your personality.`
+    console.log(`[Chatter] ${chatter.username} may mention current ${topic}`)
   }
 
   // Build chatter-specific context from session state
@@ -154,7 +194,11 @@ export async function generateChatterMessage(
   })
 
   // Log the enhanced prompt for debugging
-  console.log(`[Chatter] ${chatter.type} (${chatter.username}) - Behavior: ${behaviorAngle}${situation ? ` | Situation: ${situation}` : ''}`)
+  const logParts = [`[Chatter] ${chatter.type} (${chatter.username})`]
+  if (isReactingToRant) logParts.push('REACTING TO RANT')
+  if (behaviorAngle) logParts.push(`Behavior: ${behaviorAngle}`)
+  if (situation) logParts.push(`Situation: ${situation}`)
+  console.log(logParts.join(' - '))
 
   // Generate a contextual message from the chatter
   const response = await getAI().models.generateContent({
@@ -169,8 +213,10 @@ Generate one short chat message from this viewer:`,
     config: {
       maxOutputTokens: 500,
       temperature: 1.2, // Slightly higher temp for more variety
+      // Enable search grounding for current events awareness
+      tools: [{ googleSearch: {} }],
       systemInstruction: `You generate short chat messages for a simulated viewer in a livestream chat.
-Today is ${formattedDate}. You can reference current events, the date, or time of year naturally.
+Today is ${formattedDate}. You have access to Google Search to reference current events, sports scores, news, or trending topics when relevant to the chatter's personality. Use this sparingly and naturally.
 
 IMPORTANT - BE INTERESTING:
 - PROVOKE reactions. Create drama. Make Phil WANT to respond.
@@ -179,6 +225,7 @@ IMPORTANT - BE INTERESTING:
 - Say something that will get a REACTION - positive or negative.
 - Chatters should feel like real internet degenerates, not polite guests.
 - Typos, bad grammar, all caps, weird punctuation = authentic.
+${isReactingToRant ? '\n⚠️ CRITICAL: Phil just ranted - you MUST react to what he said!' : ''}
 
 Generate ONE short message (usually under 15 words) that fits the personality.
 ONLY output the chat message itself, nothing else. No quotes, no attribution, just the message.

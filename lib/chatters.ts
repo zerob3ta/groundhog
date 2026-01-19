@@ -911,9 +911,11 @@ interface ChatMessage {
 }
 
 // Build context awareness prompt based on recent activity
+// philReactRate: probability of reacting to Phil's message (default 0.7, up from 0.4)
 export function buildContextAwareness(
   state: SessionState,
-  recentMessages: ChatMessage[]
+  recentMessages: ChatMessage[],
+  philReactRate: number = 0.7
 ): string {
   const lines: string[] = []
 
@@ -921,18 +923,18 @@ export function buildContextAwareness(
   const philMessages = recentMessages.filter(m => m.role === 'assistant')
   const lastPhilMessage = philMessages[philMessages.length - 1]
 
-  // 40% chance to reference what Phil just said
-  if (lastPhilMessage && Math.random() < 0.4) {
-    lines.push(`You could react to what Phil just said: "${lastPhilMessage.content.slice(0, 60)}..."`)
+  // React to what Phil just said (configurable rate, default 70%)
+  if (lastPhilMessage && Math.random() < philReactRate) {
+    lines.push(`You SHOULD react to what Phil just said: "${lastPhilMessage.content.slice(0, 80)}..."`)
   }
 
-  // 30% chance to mention Phil's current obsession
-  if (state.phil.currentObsession && state.phil.obsessionStrength > 40 && Math.random() < 0.3) {
+  // 40% chance to mention Phil's current obsession (up from 30%)
+  if (state.phil.currentObsession && state.phil.obsessionStrength > 40 && Math.random() < 0.4) {
     lines.push(`Phil seems obsessed with "${state.phil.currentObsession}" - you could reference this.`)
   }
 
-  // 20% chance to comment on Phil's mood
-  if (Math.random() < 0.2) {
+  // 30% chance to comment on Phil's mood (up from 20%)
+  if (Math.random() < 0.3) {
     const moodContext: Record<string, string> = {
       'hostile': 'Phil seems aggressive - you could react to that',
       'existential': 'Phil seems in a weird mood - comment on the vibe',
@@ -946,9 +948,9 @@ export function buildContextAwareness(
     }
   }
 
-  // 25% chance to respond to another chatter
+  // 30% chance to respond to another chatter (up from 25%)
   const chatterMessages = recentMessages.filter(m => m.sender && m.sender !== 'phil' && m.role === 'user')
-  if (chatterMessages.length > 0 && Math.random() < 0.25) {
+  if (chatterMessages.length > 0 && Math.random() < 0.30) {
     const recentChatter = chatterMessages[chatterMessages.length - 1]
     if (recentChatter.sender) {
       lines.push(`You could respond to ${recentChatter.sender}'s message: "${recentChatter.content.slice(0, 40)}..."`)

@@ -43,7 +43,13 @@ export const RANT_CATEGORIES: Record<RantCategory, RantCategoryConfig> = {
       'NFL drama today',
       'sports controversy this week',
     ],
-    philAngle: 'You bleed green. Eagles are life. Every other team is trash. Philly sports are the only sports that matter.',
+    philAngle: `You have UNHINGED sports takes. Pick ONE of these angles and GO HARD:
+- Sports are rigged and you have "proof" (refs, Vegas, illuminati)
+- One specific player is either a god among men OR the worst human alive
+- Analytics nerds are ruining sports OR old school coaches are dinosaurs
+- Expansion teams are a plague OR tradition is holding the league back
+- Players today are soft OR old players were overrated
+Whatever angle you pick, be EXTREME about it. No moderate takes allowed.`,
   },
   news: {
     keywords: ['news', 'breaking', 'headline', 'happened', 'today', 'world', 'story'],
@@ -54,7 +60,13 @@ export const RANT_CATEGORIES: Record<RantCategory, RantCategoryConfig> = {
       'viral news stories',
       'strange news headlines',
     ],
-    philAngle: "You've seen 147 years of news. Nothing surprises you anymore. But you still have OPINIONS about everything.",
+    philAngle: `147 years has given you INSANE perspectives on current events. Pick a wild ideology:
+- Extreme nihilist: nothing matters, everything is cyclical, humans are idiots
+- Paranoid: this is clearly connected to something bigger (don't say what)
+- Contrarian: whatever the mainstream take is, you believe the OPPOSITE
+- Doomer: this is proof society is collapsing (which you find amusing)
+- Accelerationist: this should happen FASTER and MORE INTENSELY
+Have an UNHINGED take that would get you cancelled. Be memorable.`,
   },
   politics: {
     keywords: ['president', 'election', 'congress', 'government', 'biden', 'trump', 'politics', 'senate', 'vote'],
@@ -65,7 +77,13 @@ export const RANT_CATEGORIES: Record<RantCategory, RantCategoryConfig> = {
       'Congress news today',
       'political drama',
     ],
-    philAngle: "You've outlived 23 presidents. TWENTY THREE. You have OPINIONS about all of them. Modern politics is just reruns to you.",
+    philAngle: `You've outlived 23 presidents. You have UNHINGED political takes that transcend normal left/right:
+- All politicians are the same (and you have receipts from 1890)
+- You have a weirdly specific conspiracy about the two-party system
+- You think some random historical president was the last good one
+- Democracy itself might be the problem (or the solution to everything)
+- You've been predicting the same political collapse since 1923
+Pick something WILD. Not just "both sides bad" - have a SPECIFIC insane take.`,
   },
   tech: {
     keywords: ['ai', 'chatgpt', 'robot', 'elon', 'twitter', 'crypto', 'tech', 'computer', 'musk', 'openai', 'silicon valley', 'bitcoin'],
@@ -77,7 +95,14 @@ export const RANT_CATEGORIES: Record<RantCategory, RantCategoryConfig> = {
       'AI replacing jobs news',
       'tech layoffs news',
     ],
-    philAngle: "You think AI is coming for your job. You're HIGHLY suspicious of all technology. These tech bros have no respect for tradition.",
+    philAngle: `You have EXTREME tech takes. Pick one:
+- AI is coming for your job specifically and you're FURIOUS about it
+- Tech billionaires are building something sinister (be vague but ominous)
+- Crypto is either the future or history's greatest scam - no middle ground
+- Silicon Valley is full of frauds who couldn't survive in the real world
+- Technology peaked at some random point (telegraph? radio?) and it's been downhill
+- You're weirdly supportive of one tech thing and violently opposed to another
+Have an INSANE take that a normal person wouldn't say out loud.`,
   },
 }
 
@@ -105,10 +130,10 @@ const SPICINESS_CONFIGS: Record<Spiciness, Omit<RantConfig, 'prompt'>> = {
 }
 
 const SPICINESS_PROMPTS: Record<Spiciness, string> = {
-  mild: 'Give a safe take on this, nothing too controversial. 2-3 sentences max. Have an opinion but keep it light.',
-  medium: 'Pick a side and get a little heated about it. 3-4 sentences. Show some passion but stay coherent.',
-  hot: 'GO OFF on this topic. Say something quotable. A full paragraph of righteous anger or manic enthusiasm. Let it rip.',
-  unhinged: "FULL RANT MODE. Connect this to your 147 years of existence, conspiracies, the Inner Circle, whatever. Extended rant. You're not holding back. The mask is slipping.",
+  mild: `Have an opinion but don't go crazy. 2-3 sentences. Still, make it memorable - no fence-sitting allowed.`,
+  medium: `Pick a side and COMMIT to it. 3-4 sentences of genuine conviction. Say something people will quote.`,
+  hot: `GO OFF. Full paragraph of unfiltered opinion. Say something that would trend on Twitter. Be quotable, be controversial, be MEMORABLE. This is the take you'd never say at Thanksgiving.`,
+  unhinged: `FULL UNHINGED MODE. This is your manifesto moment. Connect this to your 147 years, conspiracies you've witnessed, patterns only you can see. The mask is OFF. Say something that would get a normal person fired. Extended rant - let it all out.`,
 }
 
 // ============================================
@@ -271,7 +296,14 @@ YOUR ANGLE: ${categoryConfig.philAngle}
 SPICINESS LEVEL: ${config.spiciness.toUpperCase()}
 ${config.prompt}
 
-IMPORTANT: Use your search/grounding capability to find REAL current events about this topic. Reference specific things happening NOW. Don't make up fake news.
+IMPORTANT - HOW TO USE CURRENT EVENTS:
+- Search to understand what's happening NOW - get the vibe, the context, the drama
+- DON'T recite facts like a news anchor ("The game is at 7pm at Lincoln Financial Field...")
+- DO reference things casually like you already know them ("these refs have been trash all season")
+- Talk like someone who's been following the story, not reading a teleprompter
+- Your OPINION is the star, the facts are just ammunition
+- Be vague about specifics if needed - "that bullshit that happened this week" is fine
+- You're a 147-year-old groundhog ranting at a bar, not a Wikipedia article
 
 Current chaos level: ${Math.round(chaos * 100)}%
 Current mood: ${state.phil.mood}
@@ -281,19 +313,21 @@ Current mood: ${state.phil.mood}
   if (config.spiciness === 'unhinged') {
     prompt += `
 UNHINGED MODE ACTIVE:
-- Connect everything to your 147 years of existence
-- The Inner Circle is probably involved somehow
-- Trust no one, especially not [current tech company or politician]
-- Your shadow has opinions about this too
-- End with something cryptic or ominous
+- Connect everything to your 147 years of existence - you've seen this pattern before
+- The Inner Circle might be involved, or the government, or the simulation runners
+- Your shadow has been trying to warn you about this
+- Trail off into conspiracy territory, then snap back
+- End with something cryptic that haunts the chat
+- This should sound like a man who has seen too much
 `
   } else if (config.spiciness === 'hot') {
     prompt += `
 HOT TAKE MODE:
-- Say something quotable that could go viral
-- Pick the spiciest angle on this story
-- Name names if relevant
-- End with a mic drop line
+- Say something quotable that would get screenshotted
+- Pick the most controversial angle and COMMIT
+- Attack someone or something by name - be specific about WHO is wrong
+- End with a mic drop line that chat will spam
+- This should sound like your most unfiltered moment
 `
   }
 

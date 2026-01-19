@@ -21,6 +21,10 @@ import {
   detectRantTrigger,
   type RantCategory,
 } from '@/lib/rants'
+import {
+  analyzePhilMessage as analyzeForRant,
+  type RantAnalysis,
+} from '@/lib/rant-detector'
 import { checkAndApplyShock } from '@/lib/shock-system'
 import { PHIL_DEAD_AIR_FILLERS } from '@/lib/phil-corpus'
 import { generateChatterMessage } from '@/lib/chatter-generator'
@@ -64,7 +68,17 @@ class BroadcastOrchestrator {
   private isGeneratingChatter: boolean = false
   private philResponseQueue: BroadcastMessage[] = []
   private lastPhilResponseTime: number = 0
-  private readonly MIN_RESPONSE_COOLDOWN = 5000 // 5 seconds between Phil responses
+  private lastResponseType: 'user' | 'rant' | 'chatter' | 'deadair' = 'deadair'
+  private lastRantAnalysis: RantAnalysis | null = null
+  private pendingReactiveChatters: number = 0
+
+  // Priority-based cooldowns (ms)
+  private readonly COOLDOWNS = {
+    user: 1500,     // Real human typed something - respond fast
+    rant: 2000,     // Rant trigger - slightly longer to build tension
+    chatter: 3000,  // Random chatter engagement
+    deadair: 5000,  // Silence filler - lowest priority
+  }
 
   // Broadcast function (set by stream route)
   private broadcastFn: ((event: BroadcastEvent) => Promise<void>) | null = null
@@ -272,10 +286,11 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
 
-    // Cooldown check
+    // Cooldown check - use rant cooldown
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
-    if (timeSinceLastResponse < this.MIN_RESPONSE_COOLDOWN) {
-      console.log(`[Rant] Skipping rant - cooldown`)
+    const cooldown = this.COOLDOWNS.rant
+    if (timeSinceLastResponse < cooldown) {
+      console.log(`[Rant] Skipping rant - cooldown (${timeSinceLastResponse}ms < ${cooldown}ms)`)
       return
     }
 
@@ -309,7 +324,7 @@ class BroadcastOrchestrator {
       const filteredText = filterStageDirections(fullText)
       if (!filteredText) return
 
-      await this.addPhilMessage(filteredText, null)
+      await this.addPhilMessage(filteredText, null, 'rant')
 
       // Update rant tracking state
       state.updateSessionState(s => processRant(s, topic.topic, topic.category))
@@ -355,10 +370,11 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
 
-    // Cooldown check - prevent rapid-fire responses
+    // Cooldown check - use dead air cooldown (lowest priority)
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
-    if (timeSinceLastResponse < this.MIN_RESPONSE_COOLDOWN) {
-      console.log(`[Orchestrator] Skipping dead air - cooldown (${timeSinceLastResponse}ms < ${this.MIN_RESPONSE_COOLDOWN}ms)`)
+    const cooldown = this.COOLDOWNS.deadair
+    if (timeSinceLastResponse < cooldown) {
+      console.log(`[Orchestrator] Skipping dead air - cooldown (${timeSinceLastResponse}ms < ${cooldown}ms)`)
       return
     }
 
@@ -396,7 +412,7 @@ class BroadcastOrchestrator {
       const filteredText = filterStageDirections(fullText)
       if (!filteredText) return
 
-      await this.addPhilMessage(filteredText, null)
+      await this.addPhilMessage(filteredText, null, 'deadair')
 
     } catch (error) {
       console.error('[Orchestrator] Dead air response error:', error)
@@ -414,10 +430,11 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
 
-    // Cooldown check - prevent rapid-fire responses
+    // Cooldown check - use chatter cooldown (medium priority)
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
-    if (timeSinceLastResponse < this.MIN_RESPONSE_COOLDOWN) {
-      console.log(`[Orchestrator] Skipping chatter response - cooldown`)
+    const cooldown = this.COOLDOWNS.chatter
+    if (timeSinceLastResponse < cooldown) {
+      console.log(`[Orchestrator] Skipping chatter response - cooldown (${timeSinceLastResponse}ms < ${cooldown}ms)`)
       return
     }
 
@@ -444,7 +461,7 @@ class BroadcastOrchestrator {
       const filteredText = filterStageDirections(fullText)
       if (!filteredText) return
 
-      await this.addPhilMessage(filteredText, null)
+      await this.addPhilMessage(filteredText, null, 'chatter')
 
     } catch (error) {
       console.error('[Orchestrator] Chatter response error:', error)
@@ -526,7 +543,7 @@ class BroadcastOrchestrator {
       const filteredText = filterStageDirections(fullText)
       if (!filteredText) return
 
-      await this.addPhilMessage(filteredText, displayName)
+      await this.addPhilMessage(filteredText, displayName, 'user')
 
     } catch (error) {
       console.error('[Orchestrator] Phil response error:', error)
@@ -537,7 +554,7 @@ class BroadcastOrchestrator {
     }
   }
 
-  private async addPhilMessage(text: string, respondingTo: string | null): Promise<void> {
+  private async addPhilMessage(text: string, respondingTo: string | null, responseType: 'user' | 'rant' | 'chatter' | 'deadair' = 'chatter'): Promise<void> {
     const state = getBroadcastState()
 
     const philMessage: BroadcastMessage = {
@@ -552,6 +569,7 @@ class BroadcastOrchestrator {
 
     // Track when Phil last responded (for cooldown)
     this.lastPhilResponseTime = Date.now()
+    this.lastResponseType = responseType
 
     // Update session state
     state.updateSessionState(s => processPhilMessage(s, text, 'neutral'))
@@ -572,6 +590,104 @@ class BroadcastOrchestrator {
     await this.broadcast({ type: 'state', data: state.getStateSnapshot() })
 
     console.log(`[Phil] ${text.slice(0, 60)}...`)
+
+    // Analyze for rant and trigger reactive chatters
+    const knownUsernames = state.getMessages()
+      .filter(m => m.type === 'chatter' || m.type === 'user')
+      .map(m => m.sender)
+    const rantAnalysis = analyzeForRant(text, knownUsernames)
+
+    if (rantAnalysis.isRant) {
+      this.lastRantAnalysis = rantAnalysis
+      console.log(`[Rant Detected] ${rantAnalysis.intensity} ${rantAnalysis.sentiment} rant about ${rantAnalysis.topics.join(', ') || 'general'}: "${rantAnalysis.keyQuote.slice(0, 40)}..."`)
+
+      // Trigger 2-4 reactive chatters
+      const numReactiveChatters = 2 + Math.floor(Math.random() * 3)
+      this.pendingReactiveChatters = numReactiveChatters
+      this.triggerReactiveChatters(rantAnalysis, numReactiveChatters)
+    } else {
+      this.lastRantAnalysis = null
+    }
+  }
+
+  // Trigger reactive chatters after a rant
+  private triggerReactiveChatters(rantAnalysis: RantAnalysis, count: number): void {
+    const state = getBroadcastState()
+
+    if (count <= 0) return
+    if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
+
+    // Stagger the chatters 1-2 seconds apart
+    const delay = 1000 + Math.random() * 1000
+
+    setTimeout(async () => {
+      if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
+      if (this.isGeneratingChatter) {
+        // Try again in a bit
+        this.triggerReactiveChatters(rantAnalysis, count)
+        return
+      }
+
+      await this.generateReactiveChatter(rantAnalysis)
+      this.pendingReactiveChatters = count - 1
+
+      // Trigger next reactive chatter
+      if (count > 1) {
+        this.triggerReactiveChatters(rantAnalysis, count - 1)
+      }
+    }, delay)
+  }
+
+  // Generate a chatter that reacts to Phil's rant
+  private async generateReactiveChatter(rantAnalysis: RantAnalysis): Promise<void> {
+    const state = getBroadcastState()
+
+    if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
+    if (this.isGeneratingChatter) return
+
+    this.isGeneratingChatter = true
+
+    try {
+      const recentMessages = state.getRecentMessages(8).map(m => ({
+        role: m.type === 'phil' ? 'assistant' : 'user',
+        content: m.text,
+        sender: m.type === 'chatter' ? m.sender : m.type,
+      }))
+
+      // Generate chatter message with rant context
+      const { chatter, message } = await generateChatterMessage(
+        recentMessages,
+        state.getSessionState(),
+        undefined, // No preferred chatter
+        rantAnalysis // Pass rant analysis for context
+      )
+
+      const chatterMessage: BroadcastMessage = {
+        id: `chatter_${Date.now()}`,
+        type: 'chatter',
+        sender: chatter.username,
+        text: message,
+        timestamp: Date.now(),
+        chatter,
+      }
+
+      state.addMessage(chatterMessage)
+
+      state.updateSessionState(s => {
+        let newState = processIncomingMessage(s, 'chatter', chatter.type)
+        newState = trackChatterMessage(newState, chatter.type as ChatterType, message)
+        return newState
+      })
+
+      await this.broadcast({ type: 'message', data: chatterMessage })
+
+      console.log(`[Reactive Chatter] ${chatter.username} reacting to rant: ${message.slice(0, 50)}...`)
+
+    } catch (error) {
+      console.error('[Orchestrator] Reactive chatter error:', error)
+    } finally {
+      this.isGeneratingChatter = false
+    }
   }
 
   // ======================
@@ -636,6 +752,64 @@ class BroadcastOrchestrator {
   // ======================
 
   private buildConversationHistory(messages: BroadcastMessage[]): { role: string; content: string }[] {
+    const MAX_MESSAGES = 15
+    const RECENT_VERBATIM = 5
+
+    // Skip intro message
+    const relevantMessages = messages.slice(1)
+
+    // If we have fewer messages than the cap, use the old behavior
+    if (relevantMessages.length <= MAX_MESSAGES) {
+      return this.buildConversationHistorySimple(relevantMessages)
+    }
+
+    // Split into older and recent messages
+    const recentMessages = relevantMessages.slice(-RECENT_VERBATIM)
+    const olderMessages = relevantMessages.slice(0, -RECENT_VERBATIM)
+
+    // Build summary of older messages
+    const summary = this.buildContextSummary(olderMessages)
+
+    // Build history with summary + recent verbatim
+    const history: { role: string; content: string }[] = []
+
+    // Add summary as context
+    if (summary) {
+      history.push({
+        role: 'user',
+        content: `[CONVERSATION SUMMARY - Older messages]\n${summary}\n[END SUMMARY - Recent messages follow]`,
+      })
+    }
+
+    // Add recent messages verbatim
+    let currentChatBundle: string[] = []
+    const flushChatBundle = () => {
+      if (currentChatBundle.length > 0) {
+        history.push({ role: 'user', content: currentChatBundle.join('\n') })
+        currentChatBundle = []
+      }
+    }
+
+    for (const msg of recentMessages) {
+      if (msg.type === 'phil') {
+        flushChatBundle()
+        history.push({ role: 'assistant', content: msg.text })
+      } else if (msg.type === 'chatter') {
+        currentChatBundle.push(`[${msg.sender}]: ${msg.text}`)
+      } else if (msg.type === 'user') {
+        currentChatBundle.push(`[${msg.sender} - respond to this person]: ${msg.text}`)
+      }
+    }
+
+    flushChatBundle()
+
+    console.log(`[Context] Built history: ${summary ? 'summary + ' : ''}${recentMessages.length} recent (total ${relevantMessages.length} messages compressed to ~${history.length} entries)`)
+
+    return history
+  }
+
+  // Simple history builder for small message counts
+  private buildConversationHistorySimple(messages: BroadcastMessage[]): { role: string; content: string }[] {
     const history: { role: string; content: string }[] = []
     let currentChatBundle: string[] = []
 
@@ -646,8 +820,7 @@ class BroadcastOrchestrator {
       }
     }
 
-    // Skip intro message
-    for (const msg of messages.slice(1)) {
+    for (const msg of messages) {
       if (msg.type === 'phil') {
         flushChatBundle()
         history.push({ role: 'assistant', content: msg.text })
@@ -660,6 +833,68 @@ class BroadcastOrchestrator {
 
     flushChatBundle()
     return history
+  }
+
+  // Build a summary of older messages for context
+  private buildContextSummary(messages: BroadcastMessage[]): string {
+    const activeChatters = new Map<string, { count: number; type: string; lastMessage: string }>()
+    const topics: string[] = []
+    const philMoods: string[] = []
+    let userMessages: { sender: string; text: string }[] = []
+
+    for (const msg of messages) {
+      if (msg.type === 'chatter' && msg.chatter) {
+        const existing = activeChatters.get(msg.sender) || { count: 0, type: msg.chatter.type, lastMessage: '' }
+        activeChatters.set(msg.sender, {
+          count: existing.count + 1,
+          type: msg.chatter.type,
+          lastMessage: msg.text.slice(0, 50),
+        })
+      } else if (msg.type === 'user') {
+        userMessages.push({ sender: msg.sender, text: msg.text })
+      } else if (msg.type === 'phil') {
+        // Extract topics/mood from Phil's messages
+        const text = msg.text.toLowerCase()
+        if (text.includes('shadow') || text.includes('prediction')) topics.push('shadow/predictions')
+        if (text.includes('chuck') || text.includes('staten')) topics.push('rival groundhogs')
+        if (text.includes('inner circle') || text.includes('handler')) topics.push('Inner Circle')
+        if (text.includes('phyllis') || text.includes('wife')) topics.push('Phyllis')
+        if (text.includes('!') || text.includes('?!')) philMoods.push('heated')
+      }
+    }
+
+    const lines: string[] = []
+
+    // Active chatters
+    const sortedChatters = Array.from(activeChatters.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 6)
+
+    if (sortedChatters.length > 0) {
+      const chatterSummary = sortedChatters
+        .map(([name, data]) => `${name}(${data.type}, ${data.count}msg)`)
+        .join(', ')
+      lines.push(`Active chatters: ${chatterSummary}`)
+    }
+
+    // User messages (important - real humans)
+    if (userMessages.length > 0) {
+      const recentUsers = userMessages.slice(-3)
+      lines.push(`Real users who chatted: ${recentUsers.map(u => `${u.sender}: "${u.text.slice(0, 30)}..."`).join('; ')}`)
+    }
+
+    // Topics discussed
+    const uniqueTopics = Array.from(new Set(topics))
+    if (uniqueTopics.length > 0) {
+      lines.push(`Topics discussed: ${uniqueTopics.join(', ')}`)
+    }
+
+    // Phil's general mood
+    if (philMoods.length > 2) {
+      lines.push(`Phil has been getting heated`)
+    }
+
+    return lines.join('\n')
   }
 
   private getDeadAirPrompt(messages: BroadcastMessage[]): string {
