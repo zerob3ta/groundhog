@@ -10,6 +10,8 @@ import {
   logStateChange,
 } from './session-state'
 import type { RantCategory } from './rants'
+import type { ResponseType, ActiveBit, BitType } from './response-types/types'
+import { startBit, processBitResponse, isLastBitMessage } from './response-types/bits'
 import { extractOpening } from './chatters'
 import { trackPhrasesInState, getChaosPrompt, updateChaosTheme } from './emotion-prompts'
 import {
@@ -1394,4 +1396,111 @@ export function processRant(
       recentRantTopics,
     },
   }
+}
+
+// ============================================
+// RESPONSE TYPE TRACKING
+// ============================================
+
+const MAX_RECENT_RESPONSE_TYPES = 10
+
+/**
+ * Track a response type that was used
+ */
+export function trackResponseType(
+  state: SessionState,
+  responseType: ResponseType
+): SessionState {
+  const recentTypes = [...state.phil.recentResponseTypes, responseType].slice(-MAX_RECENT_RESPONSE_TYPES)
+
+  logStateChange('ResponseType', `Used ${responseType}`, {
+    recent: recentTypes.slice(-3).join(', '),
+  })
+
+  return {
+    ...state,
+    phil: {
+      ...state.phil,
+      recentResponseTypes: recentTypes,
+    },
+  }
+}
+
+/**
+ * Start a new bit (temporary personality shift)
+ */
+export function startNewBit(
+  state: SessionState,
+  bitType: BitType
+): SessionState {
+  const activeBit = startBit(bitType)
+
+  return {
+    ...state,
+    phil: {
+      ...state.phil,
+      activeBit,
+    },
+  }
+}
+
+/**
+ * Process a bit response - decrements remaining messages and potentially ends the bit
+ */
+export function processActiveBit(state: SessionState): SessionState {
+  const { activeBit } = state.phil
+
+  if (!activeBit) return state
+
+  const updatedBit = processBitResponse(activeBit)
+
+  return {
+    ...state,
+    phil: {
+      ...state.phil,
+      activeBit: updatedBit,
+    },
+  }
+}
+
+/**
+ * Check if the current message is the last one of an active bit
+ */
+export function isLastBitMessageInState(state: SessionState): boolean {
+  const { activeBit } = state.phil
+  if (!activeBit) return false
+  return isLastBitMessage(activeBit)
+}
+
+/**
+ * Force end the current bit
+ */
+export function endCurrentBit(state: SessionState): SessionState {
+  if (!state.phil.activeBit) return state
+
+  logStateChange('Bit', `Force ending bit`, {
+    type: state.phil.activeBit.type,
+  })
+
+  return {
+    ...state,
+    phil: {
+      ...state.phil,
+      activeBit: null,
+    },
+  }
+}
+
+/**
+ * Get the active bit if one exists
+ */
+export function getActiveBit(state: SessionState): ActiveBit | null {
+  return state.phil.activeBit || null
+}
+
+/**
+ * Get recent response types for anti-repetition
+ */
+export function getRecentResponseTypes(state: SessionState): ResponseType[] {
+  return state.phil.recentResponseTypes || []
 }

@@ -15,6 +15,12 @@ import {
   applySeasonDecay,
   trackChatterMessage,
   processRant,
+  trackResponseType,
+  startNewBit,
+  processActiveBit,
+  isLastBitMessageInState,
+  getActiveBit,
+  getRecentResponseTypes,
 } from '@/lib/state-updates'
 import {
   shouldTriggerRant,
@@ -33,6 +39,13 @@ import { checkAndApplyShock } from '@/lib/shock-system'
 import { generateChatterMessage } from '@/lib/chatter-generator'
 import { generatePhilResponse } from '@/lib/phil-generator'
 import { type MemoryManager, buildMemoryPrompt } from '@/lib/memory'
+import type { SessionState } from '@/lib/session-state'
+import {
+  selectResponseType,
+  getResponseTypeDescription,
+  type ResponseType,
+  type ResponseTypePromptContext,
+} from '@/lib/response-types'
 
 // Filter out stage directions from Phil's responses
 function filterStageDirections(text: string): string {
@@ -102,6 +115,80 @@ class BroadcastOrchestrator {
   private broadcastFn: ((event: BroadcastEvent) => Promise<void>) | null = null
 
   private constructor() {}
+
+  // ======================
+  // Response Type Selection
+  // ======================
+
+  /**
+   * Select a response type for variety and build the context for prompts.
+   * This adds variety to Phil's responses beyond just roasts.
+   */
+  private async selectAndPrepareResponseType(
+    sessionState: SessionState,
+    memoryManager: MemoryManager | null
+  ): Promise<{
+    responseType: ResponseType
+    context: ResponseTypePromptContext
+    systemPromptAddition: string
+  }> {
+    const state = sessionState
+    const activeBit = getActiveBit(state)
+    const recentTypes = getRecentResponseTypes(state)
+
+    // Check for chat activity to help select meta commentary
+    const broadcastState = getBroadcastState()
+    const chatActivityHigh = this.chattersSinceLastPhilResponse >= 4
+
+    // Select response type
+    const { responseType, bitType, debug } = await selectResponseType(
+      state,
+      recentTypes,
+      activeBit,
+      { chatActivityHigh },
+      memoryManager
+    )
+
+    console.log(`[ResponseType] Selected: ${responseType} (chaos: ${Math.round(debug.chaos * 100)}%, flavor: ${debug.flavor})`)
+
+    // Build context for the response type prompt
+    const isLastBit = activeBit ? isLastBitMessageInState(state) : false
+    const context: ResponseTypePromptContext = {
+      state,
+      activeBit,
+      bitType,
+      isLastBitMessage: isLastBit,
+      // Note: recentMoments would need to be fetched from memory if doing callbacks
+    }
+
+    // Build the system prompt addition for this response type
+    let systemPromptAddition = ''
+    if (responseType !== 'roast') {
+      systemPromptAddition = `\n[SYSTEM: Use ${getResponseTypeDescription(responseType)} style for this response]`
+    }
+
+    return { responseType, context, systemPromptAddition }
+  }
+
+  /**
+   * Update state after Phil responds with a specific response type.
+   */
+  private updateStateAfterResponse(responseType: ResponseType, bitType?: string): void {
+    const state = getBroadcastState()
+
+    state.updateSessionState(s => {
+      let newState = trackResponseType(s, responseType)
+
+      // Handle bit lifecycle
+      if (responseType === 'bit_start' && bitType) {
+        newState = startNewBit(newState, bitType as any)
+      } else if (responseType === 'bit_response') {
+        newState = processActiveBit(newState)
+      }
+
+      return newState
+    })
+  }
 
   static getInstance(): BroadcastOrchestrator {
     // Use globalThis for persistence across hot reloads
@@ -467,18 +554,36 @@ class BroadcastOrchestrator {
         return  // Will trigger scheduleNextResponse in finally block
       }
 
+      // Select response type for variety
+      const { responseType, context: rtContext, systemPromptAddition } = await this.selectAndPrepareResponseType(
+        sessionState,
+        memoryManager
+      )
+
+      // Add response type instruction to conversation
+      if (systemPromptAddition) {
+        conversationHistory.push({
+          role: 'user',
+          content: systemPromptAddition,
+        })
+      }
+
       // Generate Phil's response directly (no HTTP call)
       const { text: fullText } = await generatePhilResponse(
         conversationHistory,
         sessionState,
         undefined,
-        memoryContext
+        memoryContext,
+        rtContext  // Pass response type context
       )
 
       const filteredText = filterStageDirections(fullText)
       if (!filteredText) return
 
       await this.addPhilMessage(filteredText, null, 'chatter')
+
+      // Track response type
+      this.updateStateAfterResponse(responseType, rtContext.bitType)
 
     } catch (error) {
       console.error('[Orchestrator] Chatter response error:', error)
@@ -554,12 +659,27 @@ class BroadcastOrchestrator {
       // Build memory context for the first user with current state
       const memoryContext = await buildMemoryPrompt(memoryManager, usersToRespond[0].displayName, sessionState)
 
+      // Select response type for variety
+      const { responseType, context: rtContext, systemPromptAddition } = await this.selectAndPrepareResponseType(
+        sessionState,
+        memoryManager
+      )
+
+      // Add response type instruction to conversation
+      if (systemPromptAddition) {
+        conversationHistory.push({
+          role: 'user',
+          content: systemPromptAddition,
+        })
+      }
+
       // Generate Phil's response
       const { text: fullText } = await generatePhilResponse(
         conversationHistory,
         sessionState,
         usersToRespond.length === 1 ? usersToRespond[0].text : undefined,
-        memoryContext
+        memoryContext,
+        rtContext  // Pass response type context
       )
 
       const filteredText = filterStageDirections(fullText)
@@ -571,7 +691,10 @@ class BroadcastOrchestrator {
 
       await this.addPhilMessage(filteredText, userNames.join(', '), 'user')
 
-      console.log(`[Phil] Responded to ${usersToRespond.length} user(s): ${userNames.join(', ')}`)
+      // Track response type
+      this.updateStateAfterResponse(responseType, rtContext.bitType)
+
+      console.log(`[Phil] Responded to ${usersToRespond.length} user(s): ${userNames.join(', ')} (${responseType})`)
 
     } catch (error) {
       console.error('[Orchestrator] User batch response error:', error)

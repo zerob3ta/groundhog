@@ -5,6 +5,7 @@ import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { CHAT_CONFIG, buildSystemPrompt } from '@/lib/phil-prompt'
 import type { SessionState } from '@/lib/session-state'
 import { stripCitations } from '@/lib/text-utils'
+import type { ResponseTypePromptContext } from '@/lib/response-types/prompts'
 
 // Initialize AI client lazily
 let ai: GoogleGenAI | null = null
@@ -23,7 +24,8 @@ export async function generatePhilResponse(
   messages: { role: string; content: string }[],
   sessionState?: SessionState,
   userMessage?: string,
-  memoryContext?: string | null
+  memoryContext?: string | null,
+  responseTypeContext?: ResponseTypePromptContext | null
 ): Promise<PhilGeneratorResult> {
   // Convert messages to Gemini format
   const geminiContents = messages.map((msg) => ({
@@ -31,8 +33,8 @@ export async function generatePhilResponse(
     parts: [{ text: msg.content }],
   }))
 
-  // Build system prompt with session state and memory context
-  const systemPrompt = buildSystemPrompt(sessionState, userMessage, memoryContext)
+  // Build system prompt with session state, memory context, and response type
+  const systemPrompt = buildSystemPrompt(sessionState, userMessage, memoryContext, responseTypeContext)
 
   // Create streaming response with search grounding
   const response = await getAI().models.generateContentStream({

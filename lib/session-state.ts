@@ -1,6 +1,8 @@
 // Session State - Central state system for Phil's emergent behavior
 // This persists across the session and influences all behavior
 
+import type { ResponseType, ActiveBit } from './response-types/types'
+
 export interface TopicData {
   mentions: number
   lastMentioned: number
@@ -76,6 +78,9 @@ export interface SessionState {
     extremeStateSide?: 'winter' | 'spring' // Which extreme he's in
     // Momentum system - creates dynamic cycles
     momentum?: MomentumState
+    // Response variety system
+    recentResponseTypes: ResponseType[] // Last 10 response types used (for anti-repetition)
+    activeBit?: ActiveBit | null // Currently active bit (temporary personality shift)
   }
 
   // Topic tracking - using object instead of Map for JSON serialization
@@ -137,6 +142,9 @@ export function createInitialSessionState(): SessionState {
         phaseStartedAt: Date.now(),
         phase: 'idle',
       },
+      // Response variety system
+      recentResponseTypes: [], // Start with no response types tracked
+      activeBit: null, // No active bit initially
     },
     topics: {},
     chatters: {},

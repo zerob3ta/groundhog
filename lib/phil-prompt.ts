@@ -163,6 +163,12 @@ import {
   type RequestAnalysis,
   type SuggestibilityResult,
 } from './suggestibility'
+import {
+  buildResponseTypePrompt,
+  getResponseTypeDescription,
+  type ResponseTypePromptContext,
+} from './response-types/prompts'
+import type { ResponseType } from './response-types/types'
 
 // Analyze a message for requests and get suggestibility result
 // Exported so ChatPanel can use it to track compliance
@@ -267,7 +273,13 @@ export function detectTopicalQuery(message: string): TopicalQuery {
 // Build the complete system prompt with session state
 // Optionally include a user message to analyze for requests
 // Optionally include memory context (pre-built from memory manager)
-export function buildSystemPrompt(state?: SessionState, userMessage?: string, memoryContext?: string | null): string {
+// Optionally include response type context for variety system
+export function buildSystemPrompt(
+  state?: SessionState,
+  userMessage?: string,
+  memoryContext?: string | null,
+  responseTypeContext?: ResponseTypePromptContext | null
+): string {
   const parts: string[] = [PHIL_SYSTEM_PROMPT]
 
   // Add corpus material
@@ -416,6 +428,46 @@ GOOD: "Eagles are cooking right now. Saquon's been going absolutely crazy - that
 `)
       }
     }
+
+    // Add response type prompt if provided (variety system)
+    if (responseTypeContext) {
+      const responseTypePrompt = buildResponseTypePrompt(
+        responseTypeContext.activeBit ? 'bit_response' : (responseTypeContext.bitType ? 'bit_start' : 'roast'),
+        responseTypeContext
+      )
+      if (responseTypePrompt) {
+        parts.push(responseTypePrompt)
+      }
+    }
+  }
+
+  return parts.join('\n')
+}
+
+// Build system prompt with response type variety
+// Helper that selects and includes the response type prompt
+export function buildSystemPromptWithResponseType(
+  state: SessionState,
+  userMessage: string | undefined,
+  memoryContext: string | null,
+  responseType: ResponseType,
+  responseTypeContext: ResponseTypePromptContext
+): string {
+  const parts: string[] = []
+
+  // Get base system prompt (without response type)
+  const basePrompt = buildSystemPrompt(state, userMessage, memoryContext, null)
+  parts.push(basePrompt)
+
+  // Add response type prompt
+  const responseTypePrompt = buildResponseTypePrompt(responseType, responseTypeContext)
+  if (responseTypePrompt) {
+    parts.push(`
+# ============================================
+# 🎭 RESPONSE MODE: ${getResponseTypeDescription(responseType).toUpperCase()}
+# ============================================
+${responseTypePrompt}
+`)
   }
 
   return parts.join('\n')
