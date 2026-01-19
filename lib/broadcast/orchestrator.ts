@@ -339,13 +339,14 @@ class BroadcastOrchestrator {
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
 
       // Process any queued user message
-      if (this.pendingUserMessage) {
-        const pending = this.pendingUserMessage
+      const pending = this.pendingUserMessage
+      if (pending) {
+        const { displayName, text } = pending
         this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
         setTimeout(() => {
-          this.generatePhilResponseToUser(pending.displayName, pending.text)
-        }, 500)
+          this.generatePhilResponseToUser(displayName, text)
+        }, 50)
       }
     }
   }
@@ -432,13 +433,14 @@ class BroadcastOrchestrator {
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
 
       // Process any queued user message
-      if (this.pendingUserMessage) {
-        const pending = this.pendingUserMessage
+      const pending = this.pendingUserMessage
+      if (pending) {
+        const { displayName, text } = pending
         this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
         setTimeout(() => {
-          this.generatePhilResponseToUser(pending.displayName, pending.text)
-        }, 500)
+          this.generatePhilResponseToUser(displayName, text)
+        }, 50)
       }
     }
   }
@@ -449,6 +451,12 @@ class BroadcastOrchestrator {
     // Don't respond if sleeping or orchestrator stopped
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
+
+    // PRIORITY: Skip if there's a pending user message waiting
+    if (this.pendingUserMessage) {
+      console.log('[Orchestrator] Skipping chatter response - user message pending')
+      return
+    }
 
     // Cooldown check - use chatter cooldown (medium priority)
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
@@ -491,13 +499,14 @@ class BroadcastOrchestrator {
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
 
       // Process any queued user message
-      if (this.pendingUserMessage) {
-        const pending = this.pendingUserMessage
+      const pending = this.pendingUserMessage
+      if (pending) {
+        const { displayName, text } = pending
         this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
         setTimeout(() => {
-          this.generatePhilResponseToUser(pending.displayName, pending.text)
-        }, 500)
+          this.generatePhilResponseToUser(displayName, text)
+        }, 50)
       }
     }
   }
@@ -508,6 +517,13 @@ class BroadcastOrchestrator {
 
     // Don't process messages if Phil is sleeping
     if (state.getIsSleeping()) return
+
+    // PRIORITY: Cancel any pending chatter response - user messages take priority
+    if (this.respondToChatterTimer) {
+      clearTimeout(this.respondToChatterTimer)
+      this.respondToChatterTimer = null
+      console.log('[Orchestrator] Cancelled pending chatter response for user message')
+    }
 
     // Add user message
     const userMessage: BroadcastMessage = {
@@ -593,7 +609,7 @@ class BroadcastOrchestrator {
         // Use setTimeout to avoid stack overflow and give a small delay
         setTimeout(() => {
           this.generatePhilResponseToUser(pending.displayName, pending.text)
-        }, 500)
+        }, 50)
       }
     }
   }
