@@ -6,6 +6,7 @@ import {
   getWeightedRandomChatter,
   buildChatterPrompt,
   type Chatter,
+  type PendulumBoost,
   getChatterByUsername,
   buildAntiRepetitionPrompt,
   getRandomSituation,
@@ -21,6 +22,7 @@ import {
   buildRantContext,
   getRantReactionSuggestions,
 } from '@/lib/rant-detector'
+import { calculatePendulumBoost } from '@/lib/state-updates'
 import { stripCitations } from '@/lib/text-utils'
 
 // Initialize AI client lazily
@@ -52,12 +54,17 @@ export async function generateChatterMessage(
   preferredChatter?: string,
   rantAnalysis?: RantAnalysis
 ): Promise<ChatterGeneratorResult> {
+  // Calculate pendulum boost if we have session state
+  const pendulumBoost: PendulumBoost | undefined = sessionState
+    ? calculatePendulumBoost(sessionState)
+    : undefined
+
   // Pick chatter - prefer the escalation target if provided (70% chance)
   let chatter: Chatter
   if (preferredChatter && Math.random() < 0.7) {
-    chatter = getChatterByUsername(preferredChatter) || getWeightedRandomChatter()
+    chatter = getChatterByUsername(preferredChatter) || getWeightedRandomChatter(pendulumBoost)
   } else {
-    chatter = getWeightedRandomChatter()
+    chatter = getWeightedRandomChatter(pendulumBoost)
   }
 
   const basePrompt = buildChatterPrompt(chatter)

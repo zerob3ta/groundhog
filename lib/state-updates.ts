@@ -244,6 +244,59 @@ export function applySpringTrigger(
   return applySeasonTrigger(state, trigger)
 }
 
+// Extreme state thresholds for pendulum balancing
+const EXTREME_WINTER_THRESHOLD = 40  // Below this = winter extreme
+const EXTREME_SPRING_THRESHOLD = 60  // Above this = spring extreme
+
+// Pendulum boost configuration
+const PENDULUM_CONFIG = {
+  startAfterMs: 10 * 60 * 1000,      // Start boosting after 10 minutes in extreme
+  boostPerIntervalMs: 5 * 60 * 1000, // Add boost every 5 minutes
+  boostPerInterval: 0.25,             // +25% per interval (0.25 = 25%)
+  maxBoost: 1.5,                      // Cap at 150% boost (2.5x total weight)
+}
+
+/**
+ * Calculate the pendulum boost multiplier for opposite-direction chatters.
+ * Returns { winterBoost, springBoost } where values > 0 mean boost that direction.
+ *
+ * Example: If Phil has been in winter extreme for 20 minutes:
+ * - winterBoost = 0 (no boost for winter chatters)
+ * - springBoost = 0.5 (50% boost for spring chatters, so 1.5x weight)
+ */
+export function calculatePendulumBoost(state: SessionState): { winterBoost: number; springBoost: number } {
+  const { extremeStateEnteredAt, extremeStateSide } = state.phil
+
+  // No boost if not in an extreme state
+  if (!extremeStateEnteredAt || !extremeStateSide) {
+    return { winterBoost: 0, springBoost: 0 }
+  }
+
+  const timeInExtreme = Date.now() - extremeStateEnteredAt
+
+  // No boost until after the start threshold
+  if (timeInExtreme < PENDULUM_CONFIG.startAfterMs) {
+    return { winterBoost: 0, springBoost: 0 }
+  }
+
+  // Calculate boost based on time past the start threshold
+  const timePastStart = timeInExtreme - PENDULUM_CONFIG.startAfterMs
+  const intervals = Math.floor(timePastStart / PENDULUM_CONFIG.boostPerIntervalMs)
+  const boost = Math.min(
+    PENDULUM_CONFIG.maxBoost,
+    (intervals + 1) * PENDULUM_CONFIG.boostPerInterval
+  )
+
+  // Apply boost to the OPPOSITE direction
+  if (extremeStateSide === 'winter') {
+    // In winter extreme -> boost spring chatters
+    return { winterBoost: 0, springBoost: boost }
+  } else {
+    // In spring extreme -> boost winter chatters
+    return { winterBoost: boost, springBoost: 0 }
+  }
+}
+
 // Apply a raw delta to the season value
 function applySeasonDelta(state: SessionState, delta: number, reason: string): SessionState {
   const oldSeason = state.phil.season
@@ -264,11 +317,47 @@ function applySeasonDelta(state: SessionState, delta: number, reason: string): S
 
   const oldLevel = getSeasonLevel(state)
 
+  // Track extreme state entry/exit for pendulum balancing
+  const wasInWinterExtreme = oldSeason < EXTREME_WINTER_THRESHOLD
+  const wasInSpringExtreme = oldSeason > EXTREME_SPRING_THRESHOLD
+  const nowInWinterExtreme = newSeason < EXTREME_WINTER_THRESHOLD
+  const nowInSpringExtreme = newSeason > EXTREME_SPRING_THRESHOLD
+
+  let extremeStateEnteredAt = state.phil.extremeStateEnteredAt
+  let extremeStateSide = state.phil.extremeStateSide
+
+  // Entering winter extreme
+  if (!wasInWinterExtreme && nowInWinterExtreme) {
+    extremeStateEnteredAt = Date.now()
+    extremeStateSide = 'winter'
+    logStateChange('Pendulum', 'Entered winter extreme', { season: newSeason })
+  }
+  // Entering spring extreme
+  else if (!wasInSpringExtreme && nowInSpringExtreme) {
+    extremeStateEnteredAt = Date.now()
+    extremeStateSide = 'spring'
+    logStateChange('Pendulum', 'Entered spring extreme', { season: newSeason })
+  }
+  // Exiting winter extreme (back to middle)
+  else if (wasInWinterExtreme && !nowInWinterExtreme) {
+    extremeStateEnteredAt = undefined
+    extremeStateSide = undefined
+    logStateChange('Pendulum', 'Exited winter extreme', { season: newSeason })
+  }
+  // Exiting spring extreme (back to middle)
+  else if (wasInSpringExtreme && !nowInSpringExtreme) {
+    extremeStateEnteredAt = undefined
+    extremeStateSide = undefined
+    logStateChange('Pendulum', 'Exited spring extreme', { season: newSeason })
+  }
+
   const newState = {
     ...state,
     phil: {
       ...state.phil,
       season: newSeason,
+      extremeStateEnteredAt,
+      extremeStateSide,
     },
     session: {
       ...state.session,

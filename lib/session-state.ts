@@ -62,6 +62,9 @@ export interface SessionState {
     lastRantAt?: number // Timestamp of last rant
     rantCount: number // Total rants this session
     recentRantTopics: string[] // Last 3 rant topics (to avoid repetition)
+    // Pendulum balancing - tracks time in extreme states
+    extremeStateEnteredAt?: number // Timestamp when Phil entered winter (<40) or spring (>60)
+    extremeStateSide?: 'winter' | 'spring' // Which extreme he's in
   }
 
   // Topic tracking - using object instead of Map for JSON serialization

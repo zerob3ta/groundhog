@@ -349,11 +349,38 @@ const CHATTER_WEIGHTS: Record<ChatterType, number> = {
 }
 
 // Get a random chatter type based on weights
-function getWeightedRandomType(): ChatterType {
-  const totalWeight = Object.values(CHATTER_WEIGHTS).reduce((a, b) => a + b, 0)
+// Pendulum boost type
+export interface PendulumBoost {
+  winterBoost: number  // Multiplier for winter-pushing chatters (0 = no boost, 0.5 = 50% boost)
+  springBoost: number  // Multiplier for spring-pushing chatters
+}
+
+function getWeightedRandomType(pendulumBoost?: PendulumBoost): ChatterType {
+  // Build adjusted weights based on pendulum boost
+  const adjustedWeights: Record<string, number> = {}
+
+  for (const [type, baseWeight] of Object.entries(CHATTER_WEIGHTS)) {
+    let weight = baseWeight
+
+    // Apply pendulum boost based on chatter's flavor tendency
+    if (pendulumBoost) {
+      const tendency = CHATTER_TENDENCIES[type as ChatterType]
+      if (tendency) {
+        if (tendency.flavorTendency === 'winter' && pendulumBoost.winterBoost > 0) {
+          weight = baseWeight * (1 + pendulumBoost.winterBoost)
+        } else if (tendency.flavorTendency === 'spring' && pendulumBoost.springBoost > 0) {
+          weight = baseWeight * (1 + pendulumBoost.springBoost)
+        }
+      }
+    }
+
+    adjustedWeights[type] = weight
+  }
+
+  const totalWeight = Object.values(adjustedWeights).reduce((a, b) => a + b, 0)
   let random = Math.random() * totalWeight
 
-  for (const [type, weight] of Object.entries(CHATTER_WEIGHTS)) {
+  for (const [type, weight] of Object.entries(adjustedWeights)) {
     random -= weight
     if (random <= 0) {
       return type as ChatterType
@@ -373,8 +400,16 @@ export function getRandomChatter(): Chatter {
 
 // Get a weighted random chatter (some types more common than others)
 // Uses hybrid system: 30% curated regulars, 70% generated
-export function getWeightedRandomChatter(): Chatter {
-  const type = getWeightedRandomType()
+// Accepts optional pendulum boost to favor opposite-direction chatters over time
+export function getWeightedRandomChatter(pendulumBoost?: PendulumBoost): Chatter {
+  const type = getWeightedRandomType(pendulumBoost)
+
+  // Log if pendulum boost affected selection
+  if (pendulumBoost && (pendulumBoost.winterBoost > 0 || pendulumBoost.springBoost > 0)) {
+    const boostDir = pendulumBoost.winterBoost > 0 ? 'winter' : 'spring'
+    const boostAmt = Math.round((pendulumBoost.winterBoost || pendulumBoost.springBoost) * 100)
+    console.log(`[Pendulum] Boosting ${boostDir} chatters by ${boostAmt}%, selected: ${type}`)
+  }
 
   // 30% chance to use curated pool
   if (Math.random() < 0.3) {
