@@ -13,7 +13,7 @@ Fake livestream of a talking groundhog. [groundhog.live](https://groundhog.live)
 ## Stack
 
 - Next.js 14 / React Three Fiber / Tailwind
-- Gemini 2.0 Flash with search grounding (Phil + chatters)
+- Gemini 3 Flash with search grounding (Phil + chatters)
 - ElevenLabs for voice
 
 ---
