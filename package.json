@@ -1,6 +1,6 @@
 {
   "name": "punxsutawney-phil-live",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "@google/genai": "^1.37.0",
     "@react-three/drei": "^9.92.0",
     "@react-three/fiber": "^8.15.0",
+    "@upstash/redis": "^1.36.1",
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

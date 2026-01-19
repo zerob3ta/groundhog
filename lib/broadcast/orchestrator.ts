@@ -1,5 +1,10 @@
 // Broadcast Orchestrator - Server-side timer logic for Phil/chatters
-// Manages the shared experience: chatter generation, dead air responses, season decay
+// Manages the shared experience: chatter generation, Phil responses, season decay
+//
+// RESPONSE MODEL:
+// - Phil responds to ALL pending user messages in a batch (priority 1)
+// - Phil responds to accumulated chatter messages probabilistically (priority 2)
+// - No dead air filler - chatters fill the space naturally
 
 import { getBroadcastState } from './state'
 import type { BroadcastMessage, BroadcastEvent } from './types'
@@ -7,7 +12,6 @@ import type { ChatterType } from '@/lib/chatters'
 import {
   processPhilMessage,
   processIncomingMessage,
-  applyWinterTrigger,
   applySeasonDecay,
   trackChatterMessage,
   processRant,
@@ -26,9 +30,9 @@ import {
   type RantAnalysis,
 } from '@/lib/rant-detector'
 import { checkAndApplyShock } from '@/lib/shock-system'
-import { PHIL_DEAD_AIR_FILLERS } from '@/lib/phil-corpus'
 import { generateChatterMessage } from '@/lib/chatter-generator'
 import { generatePhilResponse } from '@/lib/phil-generator'
+import { type MemoryManager, buildMemoryPrompt } from '@/lib/memory'
 
 // Filter out stage directions from Phil's responses
 function filterStageDirections(text: string): string {
@@ -50,35 +54,49 @@ const globalForOrchestrator = globalThis as unknown as {
   orchestrator: BroadcastOrchestrator | undefined
 }
 
+// Track a pending user message for batch response
+interface PendingUserMessage {
+  messageId: string
+  displayName: string
+  text: string
+  timestamp: number
+}
+
 class BroadcastOrchestrator {
   private static instance: BroadcastOrchestrator | null = null
 
   // Timer references
   private chatterTimer: NodeJS.Timeout | null = null
-  private deadAirTimer: NodeJS.Timeout | null = null
   private seasonDecayTimer: NodeJS.Timeout | null = null
   private shockTimer: NodeJS.Timeout | null = null
   private pruneTimer: NodeJS.Timeout | null = null
   private viewerFluctuationTimer: NodeJS.Timeout | null = null
   private respondToChatterTimer: NodeJS.Timeout | null = null
   private rantTimer: NodeJS.Timeout | null = null
+  private batchResponseTimer: NodeJS.Timeout | null = null
 
   // Processing state
   private isGeneratingPhilResponse: boolean = false
   private isGeneratingChatter: boolean = false
-  private pendingUserMessage: { displayName: string; text: string } | null = null  // Queue for user message when Phil is busy
   private lastPhilResponseTime: number = 0
-  private lastResponseType: 'user' | 'rant' | 'chatter' | 'deadair' = 'deadair'
+  private lastResponseType: 'user' | 'rant' | 'chatter' = 'chatter'
   private lastRantAnalysis: RantAnalysis | null = null
   private pendingReactiveChatters: number = 0
 
+  // Batch response tracking
+  private pendingUserMessages: PendingUserMessage[] = []  // All unresponded user messages
+  private lastPhilRespondedToMessageId: string | null = null  // Last message Phil addressed
+  private chattersSinceLastPhilResponse: number = 0  // Chatters accumulated since Phil spoke
+
   // Priority-based cooldowns (ms)
   private readonly COOLDOWNS = {
-    user: 1500,     // Real human typed something - respond fast
-    rant: 2000,     // Rant trigger - slightly longer to build tension
-    chatter: 3000,  // Random chatter engagement
-    deadair: 5000,  // Silence filler - lowest priority
+    user: 800,      // Real human typed something - respond fast
+    rant: 1500,     // Rant trigger - slightly longer to build tension
+    chatter: 2500,  // Random chatter engagement
   }
+
+  // Batch response delay (how long to wait for more messages before responding)
+  private readonly BATCH_DELAY = 500  // ms to wait for more messages to batch
 
   // Broadcast function (set by stream route)
   private broadcastFn: ((event: BroadcastEvent) => Promise<void>) | null = null
@@ -99,7 +117,7 @@ class BroadcastOrchestrator {
   }
 
   // Start all timers
-  start(): void {
+  async start(): Promise<void> {
     const state = getBroadcastState()
     if (state.isOrchestratorRunning()) {
       console.log('[Orchestrator] Already running')
@@ -109,11 +127,15 @@ class BroadcastOrchestrator {
     console.log('[Orchestrator] Starting...')
     state.setOrchestratorRunning(true)
 
-    // Reset the last Phil message time to prevent immediate dead air trigger
-    state.resetLastPhilMessageTime()
+    // Initialize memory system
+    await state.initializeMemory()
+
+    // Reset tracking state
+    this.pendingUserMessages = []
+    this.chattersSinceLastPhilResponse = 0
+    this.lastPhilRespondedToMessageId = null
 
     this.startChatterTimer()
-    this.startDeadAirTimer()
     this.startSeasonDecayTimer()
     this.startShockTimer()
     this.startPruneTimer()
@@ -122,27 +144,33 @@ class BroadcastOrchestrator {
   }
 
   // Stop all timers
-  stop(): void {
+  async stop(): Promise<void> {
     const state = getBroadcastState()
     console.log('[Orchestrator] Stopping...')
 
     if (this.chatterTimer) clearTimeout(this.chatterTimer)
-    if (this.deadAirTimer) clearInterval(this.deadAirTimer)
     if (this.seasonDecayTimer) clearInterval(this.seasonDecayTimer)
     if (this.shockTimer) clearInterval(this.shockTimer)
     if (this.pruneTimer) clearInterval(this.pruneTimer)
     if (this.viewerFluctuationTimer) clearInterval(this.viewerFluctuationTimer)
     if (this.respondToChatterTimer) clearTimeout(this.respondToChatterTimer)
     if (this.rantTimer) clearTimeout(this.rantTimer)
+    if (this.batchResponseTimer) clearTimeout(this.batchResponseTimer)
 
     this.chatterTimer = null
-    this.deadAirTimer = null
     this.seasonDecayTimer = null
     this.shockTimer = null
     this.pruneTimer = null
     this.viewerFluctuationTimer = null
     this.respondToChatterTimer = null
     this.rantTimer = null
+    this.batchResponseTimer = null
+
+    // Clear pending messages
+    this.pendingUserMessages = []
+
+    // End memory session and flush data
+    await state.endMemorySession()
 
     state.setOrchestratorRunning(false)
   }
@@ -216,20 +244,25 @@ class BroadcastOrchestrator {
         return newState
       })
 
+      // Track chatters since Phil last spoke
+      this.chattersSinceLastPhilResponse++
+
       // Broadcast to all clients
       await this.broadcast({ type: 'message', data: chatterMessage })
 
       console.log(`[Chatter] ${chatter.username}: ${message.slice(0, 50)}...`)
 
-      // Maybe trigger Phil response
-      const chatterCount = state.getChattersSincePhil() + 1
-      const responseChance = Math.min(0.7, 0.25 + chatterCount * 0.1)
+      // Maybe trigger Phil response to chatters (only if no pending user messages)
+      if (this.pendingUserMessages.length === 0 && !this.isGeneratingPhilResponse) {
+        // Probability increases with more chatters, but stays reasonable
+        const responseChance = Math.min(0.5, 0.15 + this.chattersSinceLastPhilResponse * 0.08)
 
-      if (Math.random() < responseChance && !this.isGeneratingPhilResponse) {
-        const delay = 1500 + Math.random() * 2000
-        // Track this timeout so we can cancel it when stopping/sleeping
-        if (this.respondToChatterTimer) clearTimeout(this.respondToChatterTimer)
-        this.respondToChatterTimer = setTimeout(() => this.respondToChatters(), delay)
+        if (Math.random() < responseChance) {
+          const delay = 1000 + Math.random() * 1500
+          // Track this timeout so we can cancel it when stopping/sleeping
+          if (this.respondToChatterTimer) clearTimeout(this.respondToChatterTimer)
+          this.respondToChatterTimer = setTimeout(() => this.respondToChatters(), delay)
+        }
       }
 
     } catch (error) {
@@ -315,10 +348,16 @@ class BroadcastOrchestrator {
       const rantPrompt = buildRantPrompt(topic, config, sessionState)
       conversationHistory.push({ role: 'user', content: rantPrompt })
 
+      // Build memory context for rant
+      const memoryManager = state.getMemoryManager()
+      const memoryContext = await buildMemoryPrompt(memoryManager, undefined, sessionState)
+
       // Generate Phil's rant
       const { text: fullText } = await generatePhilResponse(
         conversationHistory,
-        sessionState
+        sessionState,
+        undefined,
+        memoryContext
       )
 
       const filteredText = filterStageDirections(fullText)
@@ -338,110 +377,34 @@ class BroadcastOrchestrator {
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
 
-      // Process any queued user message
-      const pending = this.pendingUserMessage
-      if (pending) {
-        const { displayName, text } = pending
-        this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
-        setTimeout(() => {
-          this.generatePhilResponseToUser(displayName, text)
-        }, 50)
-      }
+      // Check for pending messages
+      this.scheduleNextResponse()
     }
   }
 
   // ======================
-  // Phil Responses
+  // Phil Responses (Batch Model)
   // ======================
 
-  private startDeadAirTimer(): void {
-    const config = getBroadcastState().getConfig()
-
-    this.deadAirTimer = setInterval(async () => {
-      // Get fresh state reference
-      const state = getBroadcastState()
-      if (!state.isOrchestratorRunning() || state.getIsSleeping()) {
-        console.log('[Orchestrator] Dead air timer skipped - not running or sleeping')
-        return
-      }
-      if (this.isGeneratingPhilResponse) return
-
-      const timeSincePhil = Date.now() - state.getLastPhilMessageTime()
-      if (timeSincePhil > config.deadAirThresholdMs) {
-        await this.generateDeadAirResponse()
-      }
-    }, config.deadAirCheckMs)
-  }
-
-  private async generateDeadAirResponse(): Promise<void> {
+  /**
+   * Schedule the next Phil response based on what's pending.
+   * Called after Phil finishes speaking to immediately handle any backed-up messages.
+   */
+  private scheduleNextResponse(): void {
     const state = getBroadcastState()
-
-    // Double-check we should still be generating
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
 
-    // Cooldown check - use dead air cooldown (lowest priority)
-    const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
-    const cooldown = this.COOLDOWNS.deadair
-    if (timeSinceLastResponse < cooldown) {
-      console.log(`[Orchestrator] Skipping dead air - cooldown (${timeSinceLastResponse}ms < ${cooldown}ms)`)
+    // Priority 1: Respond to pending user messages
+    if (this.pendingUserMessages.length > 0) {
+      // Small delay to prevent stack overflow
+      setTimeout(() => this.respondToUsers(), 50)
       return
     }
 
-    // Check if we should do a rant instead of normal dead air filler
-    const sessionState = state.getSessionState()
-    const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
-    if (shouldTriggerRant(sessionState, 'dead_air', chaosLevel)) {
-      console.log('[Orchestrator] Dead air triggering rant instead of filler')
-      await this.generateRantResponse(undefined, 'dead_air')
-      return
-    }
-
-    this.isGeneratingPhilResponse = true
-
-    state.setPhilTyping(true)
-    await this.broadcast({ type: 'typing', data: { isTyping: true } })
-
-    try {
-      const messages = state.getMessages()
-      const conversationHistory = this.buildConversationHistory(messages)
-
-      // Build dead air prompt
-      const deadAirPrompt = this.getDeadAirPrompt(messages)
-      conversationHistory.push({ role: 'user', content: deadAirPrompt })
-
-      // Apply silence-based winter trigger
-      state.updateSessionState(s => applyWinterTrigger(s, 'silence'))
-
-      // Generate Phil's response directly (no HTTP call)
-      const { text: fullText } = await generatePhilResponse(
-        conversationHistory,
-        state.getSessionState()
-      )
-
-      const filteredText = filterStageDirections(fullText)
-      if (!filteredText) return
-
-      await this.addPhilMessage(filteredText, null, 'deadair')
-
-    } catch (error) {
-      console.error('[Orchestrator] Dead air response error:', error)
-    } finally {
-      this.isGeneratingPhilResponse = false
-      state.setPhilTyping(false)
-      await this.broadcast({ type: 'typing', data: { isTyping: false } })
-
-      // Process any queued user message
-      const pending = this.pendingUserMessage
-      if (pending) {
-        const { displayName, text } = pending
-        this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
-        setTimeout(() => {
-          this.generatePhilResponseToUser(displayName, text)
-        }, 50)
-      }
+    // Priority 2: Respond to chatters if enough have accumulated
+    if (this.chattersSinceLastPhilResponse >= 3) {
+      setTimeout(() => this.respondToChatters(), 100)
     }
   }
 
@@ -452,17 +415,16 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
     if (this.isGeneratingPhilResponse) return
 
-    // PRIORITY: Skip if there's a pending user message waiting
-    if (this.pendingUserMessage) {
-      console.log('[Orchestrator] Skipping chatter response - user message pending')
+    // PRIORITY: Skip if there are pending user messages waiting
+    if (this.pendingUserMessages.length > 0) {
+      console.log('[Orchestrator] Skipping chatter response - user messages pending')
+      this.scheduleNextResponse()
       return
     }
 
-    // Cooldown check - use chatter cooldown (medium priority)
+    // Cooldown check
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
-    const cooldown = this.COOLDOWNS.chatter
-    if (timeSinceLastResponse < cooldown) {
-      console.log(`[Orchestrator] Skipping chatter response - cooldown (${timeSinceLastResponse}ms < ${cooldown}ms)`)
+    if (timeSinceLastResponse < this.COOLDOWNS.chatter) {
       return
     }
 
@@ -480,10 +442,17 @@ class BroadcastOrchestrator {
         content: '[SYSTEM: React to the chatters above. No user message - just respond to the chat. Keep it short, roast someone or make a comment about the chat.]',
       })
 
+      // Build memory context (no specific user for chatter responses)
+      const memoryManager = state.getMemoryManager()
+      const sessionState = state.getSessionState()
+      const memoryContext = await buildMemoryPrompt(memoryManager, undefined, sessionState)
+
       // Generate Phil's response directly (no HTTP call)
       const { text: fullText } = await generatePhilResponse(
         conversationHistory,
-        state.getSessionState()
+        sessionState,
+        undefined,
+        memoryContext
       )
 
       const filteredText = filterStageDirections(fullText)
@@ -498,20 +467,105 @@ class BroadcastOrchestrator {
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
 
-      // Process any queued user message
-      const pending = this.pendingUserMessage
-      if (pending) {
-        const { displayName, text } = pending
-        this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${displayName}`)
-        setTimeout(() => {
-          this.generatePhilResponseToUser(displayName, text)
-        }, 50)
-      }
+      // Check for more pending work
+      this.scheduleNextResponse()
     }
   }
 
-  // Handle user message and generate Phil's response
+  /**
+   * Respond to ALL pending user messages in a batch.
+   * This is the new model - Phil addresses everyone who's waiting.
+   */
+  private async respondToUsers(): Promise<void> {
+    const state = getBroadcastState()
+
+    if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
+    if (this.isGeneratingPhilResponse) return
+    if (this.pendingUserMessages.length === 0) return
+
+    // Cooldown check
+    const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
+    if (timeSinceLastResponse < this.COOLDOWNS.user) {
+      // Reschedule after cooldown
+      setTimeout(() => this.respondToUsers(), this.COOLDOWNS.user - timeSinceLastResponse + 10)
+      return
+    }
+
+    // Grab all pending user messages and clear the queue
+    const usersToRespond = [...this.pendingUserMessages]
+    this.pendingUserMessages = []
+
+    // Check if any message triggers a rant
+    for (const pending of usersToRespond) {
+      const rantCategory = detectRantTrigger(pending.text)
+      if (rantCategory) {
+        const sessionState = state.getSessionState()
+        const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
+        if (shouldTriggerRant(sessionState, 'chat', chaosLevel)) {
+          console.log(`[Rant] User message triggered ${rantCategory} rant: "${pending.text.slice(0, 50)}..."`)
+          // Put back other users (they'll be responded to after rant)
+          const otherUsers = usersToRespond.filter(u => u.messageId !== pending.messageId)
+          this.pendingUserMessages = otherUsers
+          await this.generateRantResponse(rantCategory, 'chat')
+          return
+        }
+      }
+    }
+
+    this.isGeneratingPhilResponse = true
+    state.setPhilTyping(true)
+    await this.broadcast({ type: 'typing', data: { isTyping: true } })
+
+    try {
+      const messages = state.getMessages()
+      const conversationHistory = this.buildConversationHistory(messages)
+
+      // Build the batch user prompt
+      const userNames = usersToRespond.map(u => u.displayName)
+      const memoryManager = state.getMemoryManager()
+      const sessionState = state.getSessionState()
+
+      // If multiple users, build a batch prompt
+      if (usersToRespond.length > 1) {
+        const batchPrompt = `[SYSTEM: Multiple people are waiting for your response. Address them all in one message - you can mention each by name or respond to the group. Users waiting: ${userNames.join(', ')}]`
+        conversationHistory.push({ role: 'user', content: batchPrompt })
+      }
+
+      // Build memory context for the first user with current state
+      const memoryContext = await buildMemoryPrompt(memoryManager, usersToRespond[0].displayName, sessionState)
+
+      // Generate Phil's response
+      const { text: fullText } = await generatePhilResponse(
+        conversationHistory,
+        sessionState,
+        usersToRespond.length === 1 ? usersToRespond[0].text : undefined,
+        memoryContext
+      )
+
+      const filteredText = filterStageDirections(fullText)
+      if (!filteredText) return
+
+      // Track all users as being responded to
+      const lastMessageId = usersToRespond[usersToRespond.length - 1].messageId
+      this.lastPhilRespondedToMessageId = lastMessageId
+
+      await this.addPhilMessage(filteredText, userNames.join(', '), 'user')
+
+      console.log(`[Phil] Responded to ${usersToRespond.length} user(s): ${userNames.join(', ')}`)
+
+    } catch (error) {
+      console.error('[Orchestrator] User batch response error:', error)
+    } finally {
+      this.isGeneratingPhilResponse = false
+      state.setPhilTyping(false)
+      await this.broadcast({ type: 'typing', data: { isTyping: false } })
+
+      // Check for more pending work
+      this.scheduleNextResponse()
+    }
+  }
+
+  // Handle user message - adds to batch queue and triggers response
   async handleUserMessage(displayName: string, text: string): Promise<void> {
     const state = getBroadcastState()
 
@@ -522,12 +576,12 @@ class BroadcastOrchestrator {
     if (this.respondToChatterTimer) {
       clearTimeout(this.respondToChatterTimer)
       this.respondToChatterTimer = null
-      console.log('[Orchestrator] Cancelled pending chatter response for user message')
     }
 
-    // Add user message
+    // Create and add user message
+    const messageId = `user_${Date.now()}`
     const userMessage: BroadcastMessage = {
-      id: `user_${Date.now()}`,
+      id: messageId,
       type: 'user',
       sender: displayName,
       text,
@@ -539,82 +593,37 @@ class BroadcastOrchestrator {
     // Process incoming user message in state
     state.updateSessionState(s => processIncomingMessage(s, 'user', undefined, displayName, text))
 
+    // Track user interaction in memory
+    const memoryManager = state.getMemoryManager()
+    await memoryManager.trackChatterInteraction(displayName, text)
+
     // Broadcast user message
     await this.broadcast({ type: 'message', data: userMessage })
 
-    // Generate Phil's response
-    await this.generatePhilResponseToUser(displayName, text)
-  }
+    // Add to pending queue
+    this.pendingUserMessages.push({
+      messageId,
+      displayName,
+      text,
+      timestamp: Date.now(),
+    })
 
-  private async generatePhilResponseToUser(displayName: string, userText: string): Promise<void> {
-    const state = getBroadcastState()
+    console.log(`[Orchestrator] User message queued from ${displayName} (${this.pendingUserMessages.length} pending)`)
 
-    // Don't respond if Phil is sleeping
-    if (state.getIsSleeping()) return
-
-    if (this.isGeneratingPhilResponse) {
-      // Queue this user message - Phil will respond when free
-      // Only keep the latest user message (older ones become stale)
-      console.log(`[Orchestrator] Phil busy, queuing message from ${displayName}`)
-      this.pendingUserMessage = { displayName, text: userText }
-      return
+    // Schedule batch response with small delay to allow for batching
+    if (this.batchResponseTimer) {
+      clearTimeout(this.batchResponseTimer)
     }
 
-    // Check if message triggers a rant
-    const rantCategory = detectRantTrigger(userText)
-    if (rantCategory) {
-      const sessionState = state.getSessionState()
-      const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
-
-      if (shouldTriggerRant(sessionState, 'chat', chaosLevel)) {
-        console.log(`[Rant] User message triggered ${rantCategory} rant: "${userText.slice(0, 50)}..."`)
-        await this.generateRantResponse(rantCategory, 'chat')
-        return
-      }
-    }
-
-    this.isGeneratingPhilResponse = true
-
-    state.setPhilTyping(true)
-    await this.broadcast({ type: 'typing', data: { isTyping: true } })
-
-    try {
-      const messages = state.getMessages()
-      const conversationHistory = this.buildConversationHistory(messages)
-
-      // Generate Phil's response directly (no HTTP call)
-      const { text: fullText } = await generatePhilResponse(
-        conversationHistory,
-        state.getSessionState(),
-        userText
-      )
-
-      const filteredText = filterStageDirections(fullText)
-      if (!filteredText) return
-
-      await this.addPhilMessage(filteredText, displayName, 'user')
-
-    } catch (error) {
-      console.error('[Orchestrator] Phil response error:', error)
-    } finally {
-      this.isGeneratingPhilResponse = false
-      state.setPhilTyping(false)
-      await this.broadcast({ type: 'typing', data: { isTyping: false } })
-
-      // Process any queued user message
-      if (this.pendingUserMessage) {
-        const pending = this.pendingUserMessage
-        this.pendingUserMessage = null
-        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
-        // Use setTimeout to avoid stack overflow and give a small delay
-        setTimeout(() => {
-          this.generatePhilResponseToUser(pending.displayName, pending.text)
-        }, 50)
-      }
+    // If Phil is already generating, the response will be picked up by scheduleNextResponse
+    if (!this.isGeneratingPhilResponse) {
+      this.batchResponseTimer = setTimeout(() => {
+        this.respondToUsers()
+      }, this.BATCH_DELAY)
     }
   }
 
-  private async addPhilMessage(text: string, respondingTo: string | null, responseType: 'user' | 'rant' | 'chatter' | 'deadair' = 'chatter'): Promise<void> {
+  private async addPhilMessage(text: string, respondingTo: string | null, responseType: 'user' | 'rant' | 'chatter' = 'chatter'): Promise<void> {
     const state = getBroadcastState()
 
     const philMessage: BroadcastMessage = {
@@ -630,6 +639,9 @@ class BroadcastOrchestrator {
     // Track when Phil last responded (for cooldown)
     this.lastPhilResponseTime = Date.now()
     this.lastResponseType = responseType
+
+    // Reset chatter counter since Phil just spoke
+    this.chattersSinceLastPhilResponse = 0
 
     // Update session state
     state.updateSessionState(s => processPhilMessage(s, text, 'neutral'))
@@ -656,6 +668,41 @@ class BroadcastOrchestrator {
       .filter(m => m.type === 'chatter' || m.type === 'user')
       .map(m => m.sender)
     const rantAnalysis = analyzeForRant(text, knownUsernames)
+
+    // Memory: Check for notable moments and track chatter interactions
+    const memoryManager = state.getMemoryManager()
+    const sessionState = state.getSessionState()
+
+    // Build set of fake chatter usernames to filter out from memory operations
+    const fakeChatterNames = new Set(
+      state.getMessages()
+        .filter(m => m.type === 'chatter')
+        .map(m => m.sender.toLowerCase())
+    )
+
+    // First, check and capture any pending aftermath from previous notable moments
+    const recentMessages = state.getMessages().filter(m => m.timestamp > Date.now() - 30000)
+    memoryManager.checkAndCaptureAftermath(recentMessages)
+
+    // Check if this message is notable enough to save (exclude fake chatters from involvedUsers)
+    const moment = memoryManager.checkAndSaveMoment(
+      text, sessionState, rantAnalysis, respondingTo || undefined, fakeChatterNames
+    )
+
+    // If this message created a notable moment, mark it for aftermath capture
+    if (moment) {
+      memoryManager.setPendingAftermath(moment.id)
+    }
+
+    // Track roasted users in memory (only real users, not fake chatters)
+    if (rantAnalysis.mentionedUsers?.length) {
+      for (const username of rantAnalysis.mentionedUsers) {
+        // Only track real users, not fake chatters
+        if (!fakeChatterNames.has(username.toLowerCase())) {
+          memoryManager.trackChatterInteraction(username, '', true, text.slice(0, 100))
+        }
+      }
+    }
 
     if (rantAnalysis.isRant) {
       this.lastRantAnalysis = rantAnalysis
@@ -955,64 +1002,6 @@ class BroadcastOrchestrator {
     }
 
     return lines.join('\n')
-  }
-
-  private getDeadAirPrompt(messages: BroadcastMessage[]): string {
-    const messagesSincePhil: BroadcastMessage[] = []
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].type === 'phil') break
-      messagesSincePhil.unshift(messages[i])
-    }
-
-    const lastNonPhilMessage = messages.filter(m => m.type !== 'phil').pop()
-    const timeSinceLastMessage = lastNonPhilMessage
-      ? Date.now() - lastNonPhilMessage.timestamp
-      : 60000
-    const chatIsActuallyDead = timeSinceLastMessage > 15000
-
-    const allChatters = messages
-      .filter(m => m.type === 'chatter')
-      .map(m => ({ username: m.sender, text: m.text }))
-
-    const recentChatters = messagesSincePhil
-      .filter(m => m.type === 'chatter')
-      .map(m => ({ username: m.sender, text: m.text }))
-
-    const prompts: string[] = []
-
-    if (recentChatters.length > 0) {
-      const chatter = recentChatters[Math.floor(Math.random() * recentChatters.length)]
-      prompts.push(
-        `[SYSTEM: ${chatter.username} said "${chatter.text}" and you haven't responded. React to it - roast them, answer them, or call them out. Keep it short.]`
-      )
-    }
-
-    if (allChatters.length > 2) {
-      const oldChatter = allChatters[Math.floor(Math.random() * Math.min(allChatters.length - 2, 5))]
-      prompts.push(
-        `[SYSTEM: You're still thinking about what ${oldChatter.username} said earlier ("${oldChatter.text.slice(0, 50)}..."). Circle back to it. "You know what, that thing ${oldChatter.username} said..." or "Still thinking about..."]`
-      )
-    }
-
-    prompts.push(
-      `[SYSTEM: Go on a brief tangent. Something reminded you of a memory, an opinion you have, or a story. Trail off mid-thought if you want. One or two sentences max.]`
-    )
-
-    prompts.push(
-      `[SYSTEM: Mutter about your current situation - the shadow, Phyllis, the burrow, 147 years of this, whatever's on your mind. One short comment to yourself.]`
-    )
-
-    if (chatIsActuallyDead && messagesSincePhil.length === 0) {
-      prompts.push(
-        `[SYSTEM: The chat has actually gone quiet. Comment on the silence - "${PHIL_DEAD_AIR_FILLERS[Math.floor(Math.random() * PHIL_DEAD_AIR_FILLERS.length)]}" or something similar. Be annoyed or bemused.]`
-      )
-    }
-
-    if (recentChatters.length > 0 && Math.random() < 0.6) {
-      return prompts[0]
-    }
-
-    return prompts[Math.floor(Math.random() * prompts.length)]
   }
 
   private async broadcast(event: BroadcastEvent): Promise<void> {

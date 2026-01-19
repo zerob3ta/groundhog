@@ -22,7 +22,8 @@ export interface PhilGeneratorResult {
 export async function generatePhilResponse(
   messages: { role: string; content: string }[],
   sessionState?: SessionState,
-  userMessage?: string
+  userMessage?: string,
+  memoryContext?: string | null
 ): Promise<PhilGeneratorResult> {
   // Convert messages to Gemini format
   const geminiContents = messages.map((msg) => ({
@@ -30,8 +31,8 @@ export async function generatePhilResponse(
     parts: [{ text: msg.content }],
   }))
 
-  // Build system prompt with session state
-  const systemPrompt = buildSystemPrompt(sessionState, userMessage)
+  // Build system prompt with session state and memory context
+  const systemPrompt = buildSystemPrompt(sessionState, userMessage, memoryContext)
 
   // Create streaming response with search grounding
   const response = await getAI().models.generateContentStream({

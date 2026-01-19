@@ -13,6 +13,7 @@ import {
   createInitialSessionState,
   type SessionState,
 } from '@/lib/session-state'
+import { getMemoryManager, type MemoryManager } from '@/lib/memory'
 
 // Use globalThis to persist across hot reloads in Next.js dev mode
 const globalForBroadcast = globalThis as unknown as {
@@ -55,6 +56,12 @@ class BroadcastState {
   // Fake viewer count (randomized once per session)
   private fakeViewerCount: number = 0
 
+  // Memory manager instance
+  private memoryManager: MemoryManager
+
+  // Memory initialization state
+  private memoryInitialized: boolean = false
+
   // Phil's intro message
   private readonly INTRO_MESSAGE: BroadcastMessage = {
     id: 'intro',
@@ -69,6 +76,8 @@ class BroadcastState {
     this.messages = [this.INTRO_MESSAGE]
     // Randomize initial fake viewer count
     this.randomizeFakeViewers()
+    // Get memory manager instance
+    this.memoryManager = getMemoryManager()
   }
 
   // Randomize fake viewer count within configured range
@@ -261,7 +270,35 @@ class BroadcastState {
     this.isPhilTyping = false
     this.lastPhilMessageAt = Date.now()
     this.audioCache.clear()
+    // Start new memory session
+    this.memoryManager.startNewSession()
     console.log('[BroadcastState] Session reset for fresh start')
+  }
+
+  // ======================
+  // Memory System
+  // ======================
+
+  // Initialize memory system (call on first orchestrator start)
+  async initializeMemory(): Promise<void> {
+    if (this.memoryInitialized) return
+
+    await this.memoryManager.initialize()
+    this.memoryInitialized = true
+    console.log('[BroadcastState] Memory system initialized')
+  }
+
+  // Get memory manager for direct access
+  getMemoryManager(): MemoryManager {
+    return this.memoryManager
+  }
+
+  // End memory session (call on sleep or shutdown)
+  async endMemorySession(): Promise<void> {
+    if (!this.memoryInitialized) return
+
+    await this.memoryManager.endSession(this.sessionState)
+    console.log('[BroadcastState] Memory session ended')
   }
 
   // Occasionally fluctuate fake viewer count (call this periodically)

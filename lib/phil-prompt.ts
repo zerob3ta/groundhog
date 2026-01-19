@@ -266,7 +266,8 @@ export function detectTopicalQuery(message: string): TopicalQuery {
 
 // Build the complete system prompt with session state
 // Optionally include a user message to analyze for requests
-export function buildSystemPrompt(state?: SessionState, userMessage?: string): string {
+// Optionally include memory context (pre-built from memory manager)
+export function buildSystemPrompt(state?: SessionState, userMessage?: string, memoryContext?: string | null): string {
   const parts: string[] = [PHIL_SYSTEM_PROMPT]
 
   // Add corpus material
@@ -323,6 +324,11 @@ ${getChaosLevelPrompt(state)}
 # ============================================
 ${buildEmotionPrompt(emotion, state)}
 `)
+
+    // Add memory context if provided
+    if (memoryContext) {
+      parts.push(memoryContext)
+    }
 
     // At moderate chaos (30%+), start reducing baseline rules
     if (chaos >= 0.3) {

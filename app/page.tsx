@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import ChatPanelBroadcast from '@/components/ChatPanelBroadcast'
 import LiveBadge from '@/components/LiveBadge'
 import SeasonMeter from '@/components/SeasonMeter'
 import InactivityCheck from '@/components/InactivityCheck'
+import StreamStartOverlay from '@/components/StreamStartOverlay'
 import { PhilProvider } from '@/lib/phil-context'
 import { BroadcastProvider, useBroadcastDisplay, useBroadcastViewers, useBroadcastContext } from '@/lib/broadcast-context'
 
@@ -134,6 +135,7 @@ function DisconnectedScreen({ onReconnect }: { onReconnect: () => void }) {
 
 export default function Home() {
   const [isDisconnected, setIsDisconnected] = useState(false)
+  const [hasStarted, setHasStarted] = useState(false)
 
   const handleDisconnected = () => {
     setIsDisconnected(true)
@@ -145,6 +147,10 @@ export default function Home() {
     window.location.reload()
   }
 
+  const handleStreamStart = useCallback(() => {
+    setHasStarted(true)
+  }, [])
+
   if (isDisconnected) {
     return <DisconnectedScreen onReconnect={handleReconnect} />
   }
@@ -153,7 +159,10 @@ export default function Home() {
     <BroadcastProvider>
       <PhilProvider>
         <main className="h-screen w-screen flex flex-col lg:flex-row bg-stream-dark">
-          {/* Inactivity check */}
+          {/* Stream start overlay - requires user interaction for audio */}
+          {!hasStarted && <StreamStartOverlay onStart={handleStreamStart} />}
+
+          {/* Inactivity check - only active after stream started */}
           <InactivityWrapper onDisconnected={handleDisconnected} />
 
           {/* Sleeping overlay */}
