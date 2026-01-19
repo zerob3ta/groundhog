@@ -45,6 +45,15 @@ export interface ChatterTrackingState {
   usedOpenings: string[]                // "OMG", "yo", "bruh" etc (last 15)
 }
 
+// Momentum system - creates dynamic cycles instead of boring steady state
+// Phases: idle -> building -> holding -> returning -> idle
+export interface MomentumState {
+  direction: 'winter' | 'spring' | null  // Current momentum direction
+  strength: number                        // 0-1, how strong the amplification is
+  phaseStartedAt: number                  // When the current phase started
+  phase: 'idle' | 'building' | 'holding' | 'returning'  // Current momentum phase
+}
+
 export interface SessionState {
   // Phil's internal state
   phil: {
@@ -65,6 +74,8 @@ export interface SessionState {
     // Pendulum balancing - tracks time in extreme states
     extremeStateEnteredAt?: number // Timestamp when Phil entered winter (<40) or spring (>60)
     extremeStateSide?: 'winter' | 'spring' // Which extreme he's in
+    // Momentum system - creates dynamic cycles
+    momentum?: MomentumState
   }
 
   // Topic tracking - using object instead of Map for JSON serialization
@@ -119,6 +130,13 @@ export function createInitialSessionState(): SessionState {
       // Rant tracking
       rantCount: 0,
       recentRantTopics: [],
+      // Momentum system - starts idle, will pick direction when near steady state
+      momentum: {
+        direction: null,
+        strength: 0,
+        phaseStartedAt: Date.now(),
+        phase: 'idle',
+      },
     },
     topics: {},
     chatters: {},

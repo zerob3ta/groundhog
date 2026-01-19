@@ -190,10 +190,11 @@ export function transitionMood(
 // chaos = |season - 50| / 50 (automatically derived)
 // flavor = season < 50 ? 'winter' : 'spring' (automatically derived)
 
-// Season change magnitudes (INCREASED for more chaos drift)
+// Season change magnitudes - BALANCED for winter/spring parity
 // Negative = push toward winter (0), Positive = push toward spring (100)
+// Winter total: ~49, Spring total: ~49 (equal)
 const SEASON_TRIGGERS = {
-  // Winter triggers (push toward 0)
+  // Winter triggers (push toward 0) - total: ~49
   troll: -8,           // Trolling pushes toward winter
   silence: -3,         // Ignored/silence
   weird: -5,           // Confusing message
@@ -203,19 +204,19 @@ const SEASON_TRIGGERS = {
   time: -2,            // Time passing (slow drift)
   existential: -10,    // Existential questions
 
-  // Spring triggers (push toward 100)
-  engagement: 8,       // Genuine engagement
-  wholesome: 5,        // Positive message
-  good_question: 6,    // Interesting question
+  // Spring triggers (push toward 100) - total: ~49 (balanced with winter)
+  engagement: 6,       // Genuine engagement
+  wholesome: 4,        // Positive message
+  good_question: 5,    // Interesting question
   roast_success: 4,    // Successful roast
-  hype: 10,            // Chat hype - BIG spring push
-  favorite_topic: 5,   // Favorite topic
+  hype: 7,             // Chat hype
+  favorite_topic: 4,   // Favorite topic
 
-  // NEW: More spring triggers for balance
-  fight_won: 12,       // Phil wins an argument/roast - BIG spring push
-  challenge: 8,        // Someone challenges Phil - fight mode
-  worship: 10,         // Excessive praise/worship - ego inflation
-  competition: 8,      // Rivalry/competition talk - aggressive spring
+  // Competitive spring triggers (balanced)
+  fight_won: 7,        // Phil wins an argument/roast
+  challenge: 5,        // Someone challenges Phil
+  worship: 4,          // Excessive praise/worship
+  competition: 3,      // Rivalry/competition talk
 } as const
 
 export type SeasonTrigger = keyof typeof SEASON_TRIGGERS
@@ -294,6 +295,203 @@ export function calculatePendulumBoost(state: SessionState): { winterBoost: numb
   } else {
     // In spring extreme -> boost winter chatters
     return { winterBoost: boost, springBoost: 0 }
+  }
+}
+
+// ============================================
+// MOMENTUM SYSTEM
+// ============================================
+// Creates dynamic cycles instead of boring steady state
+// Phases: idle -> building -> holding -> returning -> idle
+
+import type { MomentumState } from './session-state'
+
+const MOMENTUM_CONFIG = {
+  // Steady state detection - when to start building momentum
+  steadyStateRange: 15,        // Within 15 points of 50 = steady state (35-65)
+
+  // Building phase
+  buildingDurationMs: 3 * 60 * 1000,  // 3 minutes to build momentum
+  maxBuildStrength: 0.6,              // Max 60% boost during building
+
+  // Holding phase
+  holdingThreshold: 30,               // Season must be <30 or >70 to enter holding
+  holdingDurationMs: 5 * 60 * 1000,   // Hold at extreme for 5 minutes
+
+  // Returning phase
+  returningDurationMs: 4 * 60 * 1000, // 4 minutes to return to center
+  maxReturnStrength: 0.5,             // Max 50% boost toward center
+}
+
+/**
+ * Update momentum state based on current season.
+ * Called after each season change to manage phase transitions.
+ */
+export function updateMomentum(state: SessionState): SessionState {
+  const { season } = state.phil
+  const momentum = state.phil.momentum || {
+    direction: null,
+    strength: 0,
+    phaseStartedAt: Date.now(),
+    phase: 'idle' as const,
+  }
+
+  const now = Date.now()
+  const timeInPhase = now - momentum.phaseStartedAt
+  const distanceFromCenter = Math.abs(season - 50)
+  const isInSteadyState = distanceFromCenter <= MOMENTUM_CONFIG.steadyStateRange
+
+  let newMomentum: MomentumState = { ...momentum }
+
+  switch (momentum.phase) {
+    case 'idle': {
+      // In idle, wait for steady state then pick a random direction
+      if (isInSteadyState && timeInPhase > 30000) { // Wait 30s before starting
+        // Pick random direction
+        const direction = Math.random() < 0.5 ? 'winter' : 'spring'
+        newMomentum = {
+          direction,
+          strength: 0.1, // Start with small boost
+          phaseStartedAt: now,
+          phase: 'building',
+        }
+        logStateChange('Momentum', `Starting to build ${direction} momentum`, { season })
+      }
+      break
+    }
+
+    case 'building': {
+      // Building phase - increase strength over time, pushing toward direction
+      const buildProgress = Math.min(1, timeInPhase / MOMENTUM_CONFIG.buildingDurationMs)
+      newMomentum.strength = 0.1 + (buildProgress * (MOMENTUM_CONFIG.maxBuildStrength - 0.1))
+
+      // Check if we've hit the extreme threshold
+      const hitWinterExtreme = momentum.direction === 'winter' && season <= MOMENTUM_CONFIG.holdingThreshold
+      const hitSpringExtreme = momentum.direction === 'spring' && season >= (100 - MOMENTUM_CONFIG.holdingThreshold)
+
+      if (hitWinterExtreme || hitSpringExtreme) {
+        // Transition to holding
+        newMomentum = {
+          ...newMomentum,
+          phaseStartedAt: now,
+          phase: 'holding',
+        }
+        logStateChange('Momentum', `Hit extreme, entering holding phase`, {
+          direction: momentum.direction,
+          season
+        })
+      }
+      // If we drift the wrong way significantly, reset
+      else if (
+        (momentum.direction === 'winter' && season > 65) ||
+        (momentum.direction === 'spring' && season < 35)
+      ) {
+        newMomentum = {
+          direction: null,
+          strength: 0,
+          phaseStartedAt: now,
+          phase: 'idle',
+        }
+        logStateChange('Momentum', `Drifted wrong way, resetting to idle`, { season })
+      }
+      break
+    }
+
+    case 'holding': {
+      // Holding at extreme - maintain position, then transition to returning
+      if (timeInPhase >= MOMENTUM_CONFIG.holdingDurationMs) {
+        newMomentum = {
+          direction: momentum.direction === 'winter' ? 'spring' : 'winter', // Flip direction
+          strength: MOMENTUM_CONFIG.maxReturnStrength,
+          phaseStartedAt: now,
+          phase: 'returning',
+        }
+        logStateChange('Momentum', `Holding complete, returning toward center`, {
+          from: momentum.direction,
+          season
+        })
+      }
+      break
+    }
+
+    case 'returning': {
+      // Returning to center - decrease strength as we approach
+      const returnProgress = Math.min(1, timeInPhase / MOMENTUM_CONFIG.returningDurationMs)
+      newMomentum.strength = MOMENTUM_CONFIG.maxReturnStrength * (1 - returnProgress * 0.5)
+
+      // If we're back in steady state, go to idle
+      if (isInSteadyState) {
+        newMomentum = {
+          direction: null,
+          strength: 0,
+          phaseStartedAt: now,
+          phase: 'idle',
+        }
+        logStateChange('Momentum', `Returned to steady state, entering idle`, { season })
+      }
+      // If return phase times out, also go to idle
+      else if (timeInPhase >= MOMENTUM_CONFIG.returningDurationMs) {
+        newMomentum = {
+          direction: null,
+          strength: 0,
+          phaseStartedAt: now,
+          phase: 'idle',
+        }
+        logStateChange('Momentum', `Return phase timed out, entering idle`, { season })
+      }
+      break
+    }
+  }
+
+  // Only update if momentum changed
+  if (
+    newMomentum.phase !== momentum.phase ||
+    newMomentum.direction !== momentum.direction ||
+    Math.abs(newMomentum.strength - momentum.strength) > 0.05
+  ) {
+    return {
+      ...state,
+      phil: {
+        ...state.phil,
+        momentum: newMomentum,
+      },
+    }
+  }
+
+  return state
+}
+
+/**
+ * Calculate momentum boost for chatter selection.
+ * Returns boost values that amplify the current momentum direction.
+ */
+export function calculateMomentumBoost(state: SessionState): { winterBoost: number; springBoost: number } {
+  const momentum = state.phil.momentum
+
+  if (!momentum || momentum.phase === 'idle' || !momentum.direction) {
+    return { winterBoost: 0, springBoost: 0 }
+  }
+
+  // Apply boost in the momentum direction
+  if (momentum.direction === 'winter') {
+    return { winterBoost: momentum.strength, springBoost: 0 }
+  } else {
+    return { winterBoost: 0, springBoost: momentum.strength }
+  }
+}
+
+/**
+ * Get combined boost from both pendulum and momentum systems.
+ * Pendulum corrects extremes, momentum creates dynamic cycles.
+ */
+export function getCombinedBoost(state: SessionState): { winterBoost: number; springBoost: number } {
+  const pendulum = calculatePendulumBoost(state)
+  const momentum = calculateMomentumBoost(state)
+
+  // Combine boosts - they can work together or against each other
+  return {
+    winterBoost: Math.max(0, pendulum.winterBoost + momentum.winterBoost),
+    springBoost: Math.max(0, pendulum.springBoost + momentum.springBoost),
   }
 }
 
@@ -380,16 +578,19 @@ function applySeasonDelta(state: SessionState, delta: number, reason: string): S
     logStateChange('Season', `STORM PASSED - Surging toward baseline`, {
       season: `${newSeason} -> ${surgedSeason}`,
     })
-    return {
+    const stormState = {
       ...newState,
       phil: {
         ...newState.phil,
         season: surgedSeason,
       },
     }
+    // Update momentum after storm
+    return updateMomentum(stormState)
   }
 
-  return newState
+  // Update momentum system after season change
+  return updateMomentum(newState)
 }
 
 // Natural decay toward equilibrium (50) with MOMENTUM

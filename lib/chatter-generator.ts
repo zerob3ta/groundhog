@@ -22,7 +22,7 @@ import {
   buildRantContext,
   getRantReactionSuggestions,
 } from '@/lib/rant-detector'
-import { calculatePendulumBoost } from '@/lib/state-updates'
+import { getCombinedBoost } from '@/lib/state-updates'
 import { stripCitations } from '@/lib/text-utils'
 
 // Initialize AI client lazily
@@ -54,9 +54,9 @@ export async function generateChatterMessage(
   preferredChatter?: string,
   rantAnalysis?: RantAnalysis
 ): Promise<ChatterGeneratorResult> {
-  // Calculate pendulum boost if we have session state
+  // Calculate combined boost (pendulum + momentum) if we have session state
   const pendulumBoost: PendulumBoost | undefined = sessionState
-    ? calculatePendulumBoost(sessionState)
+    ? getCombinedBoost(sessionState)
     : undefined
 
   // Pick chatter - prefer the escalation target if provided (70% chance)

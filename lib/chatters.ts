@@ -326,25 +326,26 @@ export const CHATTER_PROMPTS: Record<ChatterType, string> = Object.fromEntries(
 // WEIGHTED RANDOM SELECTION
 // ============================================
 
-// REBALANCED: More weight to chaos-causing types for interesting interactions
+// BALANCED: Equal weight to winter/spring to prevent bias
+// Spring total: ~38, Winter total: ~38, Neutral: ~32
 const CHATTER_WEIGHTS: Record<ChatterType, number> = {
   troll: 10,      // Creates drama (winter)
-  hater: 10,      // Provokes Phil (spring - fight mode)
+  hater: 6,       // Fight mode (spring)
   normie: 10,     // Regular people who drop current events naturally
   takes_haver: 10, // Opinionated, brings up topics
-  fanboy: 9,      // Hype energy (spring) - BOOSTED
-  unhinged: 8,    // Unpredictable manic gold (spring)
-  simp: 7,        // Ego inflation (spring) - BOOSTED
-  child: 7,       // Chaotic spring energy - BOOSTED
-  conspiracy: 6,  // Wild tangents (winter)
-  boomer: 6,      // Draining (winter)
-  thirsty: 6,     // Makes Phil uncomfortable (spring)
-  drunk: 6,       // Party chaos (spring) - BOOSTED
+  fanboy: 5,      // Hype energy (spring)
+  unhinged: 4,    // Manic gold (spring)
+  simp: 4,        // Ego inflation (spring)
+  child: 5,       // Chaotic spring energy
+  conspiracy: 8,  // Wild tangents (winter)
+  boomer: 8,      // Draining (winter)
+  thirsty: 4,     // Makes Phil uncomfortable (spring)
+  drunk: 4,       // Party chaos (spring)
   gen_alpha: 5,   // Random chaos
-  local: 5,       // Philly pride (spring)
-  confused: 4,    // Existential (winter) - LOWERED
-  influencer: 4,  // Annoying (spring)
-  wholesome: 3,   // Stabilizing
+  local: 3,       // Philly pride (spring)
+  confused: 8,    // Existential (winter)
+  influencer: 3,  // Annoying (spring)
+  wholesome: 4,   // Stabilizing
   lurker: 3,      // Neutral
 }
 
@@ -507,7 +508,7 @@ export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
     canFlip: true,  // Can be creepy (winter) if too much
   },
   hater: {
-    chaosTendency: 0.6,   // Destabilizing
+    chaosTendency: 0.5,   // Destabilizing (lowered from 0.6)
     flavorTendency: 'spring',  // Fight mode is AGGRESSIVE (spring)
     canFlip: true,  // If Phil loses the exchange, flips to winter
   },
@@ -527,7 +528,7 @@ export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
     canFlip: false, // Consistent stabilizer
   },
   unhinged: {
-    chaosTendency: 0.9,   // Maximum chaos
+    chaosTendency: 0.7,   // High chaos (lowered from 0.9)
     flavorTendency: 'spring',  // Unhinged energy is MANIC spring
     canFlip: true,
   },
