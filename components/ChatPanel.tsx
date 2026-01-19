@@ -1314,7 +1314,7 @@ export default function ChatPanel() {
       </div>
 
       {/* Messages area - Phil's messages are audio only, not shown here */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 chat-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 chat-scrollbar">
         {messages.filter(m => m.sender !== 'phil').map((message) => (
           <ChatMessage key={message.id} message={message} />
         ))}
@@ -1378,7 +1378,7 @@ function ChatMessage({ message }: { message: Message }) {
           >
             {message.chatter.username}
           </span>
-          <span className="text-sm text-stream-text">{message.text}</span>
+          <span className="text-sm text-stream-text break-words">{message.text}</span>
         </div>
       </div>
     )
@@ -1409,7 +1409,7 @@ function ChatMessage({ message }: { message: Message }) {
         {isUser && (
           <p className="text-xs text-blue-200 mb-1 font-semibold">You</p>
         )}
-        <p className="text-sm leading-relaxed">{message.text}</p>
+        <p className="text-sm leading-relaxed break-words">{message.text}</p>
       </div>
     </div>
   )
