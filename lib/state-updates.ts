@@ -9,6 +9,7 @@ import {
   getSeasonLevel,
   logStateChange,
 } from './session-state'
+import type { RantCategory } from './rants'
 import { extractOpening } from './chatters'
 import { trackPhrasesInState, getChaosPrompt, updateChaosTheme } from './emotion-prompts'
 import {
@@ -998,5 +999,39 @@ export function trackChatterMessage(
   return {
     ...state,
     chatterTracking: newTracking,
+  }
+}
+
+// ============================================
+// RANT PROCESSING
+// ============================================
+
+/**
+ * Process a completed rant - update tracking state
+ */
+export function processRant(
+  state: SessionState,
+  topic: string,
+  category: RantCategory
+): SessionState {
+  const now = Date.now()
+
+  // Track the rant topic (keep last 3)
+  const recentRantTopics = [...state.phil.recentRantTopics, topic].slice(-3)
+
+  logStateChange('Rant', `Completed rant`, {
+    category,
+    topic: topic.slice(0, 40),
+    rantCount: state.phil.rantCount + 1,
+  })
+
+  return {
+    ...state,
+    phil: {
+      ...state.phil,
+      lastRantAt: now,
+      rantCount: state.phil.rantCount + 1,
+      recentRantTopics,
+    },
   }
 }

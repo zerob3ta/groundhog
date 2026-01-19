@@ -10,7 +10,17 @@ import {
   applyWinterTrigger,
   applySeasonDecay,
   trackChatterMessage,
+  processRant,
 } from '@/lib/state-updates'
+import {
+  shouldTriggerRant,
+  selectRantTopic,
+  getRantConfig,
+  buildRantPrompt,
+  getRantInterval,
+  detectRantTrigger,
+  type RantCategory,
+} from '@/lib/rants'
 import { checkAndApplyShock } from '@/lib/shock-system'
 import { PHIL_DEAD_AIR_FILLERS } from '@/lib/phil-corpus'
 import { generateChatterMessage } from '@/lib/chatter-generator'
@@ -47,6 +57,7 @@ class BroadcastOrchestrator {
   private pruneTimer: NodeJS.Timeout | null = null
   private viewerFluctuationTimer: NodeJS.Timeout | null = null
   private respondToChatterTimer: NodeJS.Timeout | null = null
+  private rantTimer: NodeJS.Timeout | null = null
 
   // Processing state
   private isGeneratingPhilResponse: boolean = false
@@ -93,6 +104,7 @@ class BroadcastOrchestrator {
     this.startShockTimer()
     this.startPruneTimer()
     this.startViewerFluctuationTimer()
+    this.startRantTimer()
   }
 
   // Stop all timers
@@ -107,6 +119,7 @@ class BroadcastOrchestrator {
     if (this.pruneTimer) clearInterval(this.pruneTimer)
     if (this.viewerFluctuationTimer) clearInterval(this.viewerFluctuationTimer)
     if (this.respondToChatterTimer) clearTimeout(this.respondToChatterTimer)
+    if (this.rantTimer) clearTimeout(this.rantTimer)
 
     this.chatterTimer = null
     this.deadAirTimer = null
@@ -115,6 +128,7 @@ class BroadcastOrchestrator {
     this.pruneTimer = null
     this.viewerFluctuationTimer = null
     this.respondToChatterTimer = null
+    this.rantTimer = null
 
     state.setOrchestratorRunning(false)
   }
@@ -212,6 +226,106 @@ class BroadcastOrchestrator {
   }
 
   // ======================
+  // Rant System
+  // ======================
+
+  private startRantTimer(): void {
+    const scheduleNextRant = () => {
+      const state = getBroadcastState()
+      const sessionState = state.getSessionState()
+      const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
+
+      // Get chaos-adjusted interval
+      const [minDelay, maxDelay] = getRantInterval(chaosLevel)
+      const delay = minDelay + Math.random() * (maxDelay - minDelay)
+
+      console.log(`[Rant] Next rant check in ${Math.round(delay / 1000)}s (chaos: ${Math.round(chaosLevel * 100)}%)`)
+
+      this.rantTimer = setTimeout(async () => {
+        const currentState = getBroadcastState()
+        if (!currentState.isOrchestratorRunning() || currentState.getIsSleeping()) {
+          scheduleNextRant()
+          return
+        }
+
+        const currentSessionState = currentState.getSessionState()
+        const currentChaos = Math.abs(currentSessionState.phil.season - 50) / 50
+
+        // Check if we should trigger an autonomous rant
+        if (shouldTriggerRant(currentSessionState, 'autonomous', currentChaos)) {
+          await this.generateRantResponse()
+        }
+
+        scheduleNextRant()
+      }, delay)
+    }
+
+    scheduleNextRant()
+  }
+
+  private async generateRantResponse(
+    triggeredCategory?: RantCategory,
+    triggerSource: 'autonomous' | 'dead_air' | 'chat' = 'autonomous'
+  ): Promise<void> {
+    const state = getBroadcastState()
+
+    if (state.getIsSleeping() || !state.isOrchestratorRunning()) return
+    if (this.isGeneratingPhilResponse) return
+
+    // Cooldown check
+    const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
+    if (timeSinceLastResponse < this.MIN_RESPONSE_COOLDOWN) {
+      console.log(`[Rant] Skipping rant - cooldown`)
+      return
+    }
+
+    const sessionState = state.getSessionState()
+    const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
+
+    // Select topic (use triggered category if provided)
+    const topic = selectRantTopic(triggeredCategory, sessionState.phil.recentRantTopics)
+    const config = getRantConfig(chaosLevel)
+
+    console.log(`[Rant] Generating ${config.spiciness} rant about ${topic.category}: ${topic.topic}`)
+
+    this.isGeneratingPhilResponse = true
+    state.setPhilTyping(true)
+    await this.broadcast({ type: 'typing', data: { isTyping: true } })
+
+    try {
+      const messages = state.getMessages()
+      const conversationHistory = this.buildConversationHistory(messages)
+
+      // Build rant prompt
+      const rantPrompt = buildRantPrompt(topic, config, sessionState)
+      conversationHistory.push({ role: 'user', content: rantPrompt })
+
+      // Generate Phil's rant
+      const { text: fullText } = await generatePhilResponse(
+        conversationHistory,
+        sessionState
+      )
+
+      const filteredText = filterStageDirections(fullText)
+      if (!filteredText) return
+
+      await this.addPhilMessage(filteredText, null)
+
+      // Update rant tracking state
+      state.updateSessionState(s => processRant(s, topic.topic, topic.category))
+
+      console.log(`[Rant] Completed ${config.spiciness} ${topic.category} rant (source: ${triggerSource})`)
+
+    } catch (error) {
+      console.error('[Orchestrator] Rant generation error:', error)
+    } finally {
+      this.isGeneratingPhilResponse = false
+      state.setPhilTyping(false)
+      await this.broadcast({ type: 'typing', data: { isTyping: false } })
+    }
+  }
+
+  // ======================
   // Phil Responses
   // ======================
 
@@ -245,6 +359,15 @@ class BroadcastOrchestrator {
     const timeSinceLastResponse = Date.now() - this.lastPhilResponseTime
     if (timeSinceLastResponse < this.MIN_RESPONSE_COOLDOWN) {
       console.log(`[Orchestrator] Skipping dead air - cooldown (${timeSinceLastResponse}ms < ${this.MIN_RESPONSE_COOLDOWN}ms)`)
+      return
+    }
+
+    // Check if we should do a rant instead of normal dead air filler
+    const sessionState = state.getSessionState()
+    const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
+    if (shouldTriggerRant(sessionState, 'dead_air', chaosLevel)) {
+      console.log('[Orchestrator] Dead air triggering rant instead of filler')
+      await this.generateRantResponse(undefined, 'dead_air')
       return
     }
 
@@ -369,6 +492,19 @@ class BroadcastOrchestrator {
     if (this.isGeneratingPhilResponse) {
       // Queue this request
       return
+    }
+
+    // Check if message triggers a rant
+    const rantCategory = detectRantTrigger(userText)
+    if (rantCategory) {
+      const sessionState = state.getSessionState()
+      const chaosLevel = Math.abs(sessionState.phil.season - 50) / 50
+
+      if (shouldTriggerRant(sessionState, 'chat', chaosLevel)) {
+        console.log(`[Rant] User message triggered ${rantCategory} rant: "${userText.slice(0, 50)}..."`)
+        await this.generateRantResponse(rantCategory, 'chat')
+        return
+      }
     }
 
     this.isGeneratingPhilResponse = true

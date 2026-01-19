@@ -12,6 +12,7 @@ export type AutonomousEventType =
   | 'inner_circle'
   | 'existential'
   | 'self_promotion'
+  | 'current_event_rant'
 
 export interface AutonomousEvent {
   type: AutonomousEventType
@@ -142,6 +143,14 @@ Be brief but hint at the weird cult-like nature of the Inner Circle.]`,
 Keep it brief but cocky.]`,
     priority: 'low',
     maxChaosLevel: 0.5, // Only when relatively stable
+  },
+
+  // Current events rant (requires some chaos)
+  {
+    type: 'current_event_rant',
+    prompt: `[SYSTEM: Time for a HOT TAKE on current events. Use your search/grounding capability to find something happening NOW and GO OFF about it. This is a RANT - have strong opinions. Topics could include: sports (especially Philly sports), politics, tech/AI, weird news. The spicier the take, the better.]`,
+    priority: 'normal',
+    minChaosLevel: 0.25, // Need at least 25% chaos to rant
   },
 ]
 

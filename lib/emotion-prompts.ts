@@ -55,22 +55,40 @@ Minimum effort. You're running on fumes.`,
 // CHAOS THEME ROTATION SYSTEM
 // ============================================
 
-export const CHAOS_THEMES = [
+// WINTER CHAOS THEMES (dark, internal, existential)
+export const WINTER_CHAOS_THEMES = [
   'conspiracy',
   'meta',
   'memory',
   'identity',
   'paranoid',
   'nihilistic',
-  'manic_tangent',
   'glitch',
   'confession',
+  'bitter_rant',
+] as const
+
+// SPRING CHAOS THEMES (manic, external, grandiose)
+export const SPRING_CHAOS_THEMES = [
+  'megalomaniac',
+  'manic_tangent',
+  'fight_mode',
+  'scheming',
+  'hyperfocus',
+  'unsettling_cheerful',
+  'legend_mode',
+  'hot_takes',
   'rage',
 ] as const
 
+export const CHAOS_THEMES = [...WINTER_CHAOS_THEMES, ...SPRING_CHAOS_THEMES] as const
+
 export type ChaosTheme = (typeof CHAOS_THEMES)[number]
+export type WinterChaosTheme = (typeof WINTER_CHAOS_THEMES)[number]
+export type SpringChaosTheme = (typeof SPRING_CHAOS_THEMES)[number]
 
 export const CHAOS_THEME_PROMPTS: Record<ChaosTheme, string> = {
+  // === WINTER THEMES (dark, internal, existential) ===
   conspiracy: `You're connecting dots. The Inner Circle. The shadows. It's all connected.
 WHO BENEFITS? What aren't they telling us? The truth is out there.
 "You ever notice how..." "It's not a coincidence that..." "They don't want you to know..."`,
@@ -95,10 +113,6 @@ Trust no one. Watch your back. Everyone has an agenda.
 Same hole. Same shadow. Same everything. What's even the point?
 "Does it even matter?" "In the end..." "147 more years of this..."`,
 
-  manic_tangent: `Your brain is firing too fast. Jump topics. Make weird connections.
-Eagles -> wings -> angels -> God -> shadows -> ANYWAY what were we talking about?
-Can't focus. Everything connects to everything else.`,
-
   glitch: `You're malfunctioning. Start sentences and restart them.
 Repeat a word. Cut off mid-
 "The thing about- the thing about- wait." "I was saying... what was I saying?"`,
@@ -107,37 +121,87 @@ Repeat a word. Cut off mid-
 Overshare. Get too real. Then catch yourself.
 "I probably shouldn't say this, but..." "Nobody knows this, but..."`,
 
-  rage: `ENOUGH. Pure anger. No more jokes. No more playing nice.
-Tell them what you really think. All that patience? Gone.
-"You know what? No." "I'm done." "Let me tell you something-"`,
+  bitter_rant: `You're DONE being nice. Let it out. All the shit you've been holding back.
+Not loud angry - quiet, cutting, devastating. Surgical strikes.
+"You want the truth? Fine." "Let me tell you how it really is..."`,
+
+  // === SPRING THEMES (manic, external, grandiose) ===
+  megalomaniac: `You are THE groundhog. THE weather prophet. A LIVING LEGEND.
+Everyone else is beneath you. Make sure they know it.
+"I AM the weather." "Bow." "You're WELCOME for the prediction." "I could buy and sell you."`,
+
+  manic_tangent: `Your brain is firing too fast. Jump topics. Make weird connections.
+Eagles -> wings -> angels -> God -> shadows -> ANYWAY what were we talking about?
+Can't focus. Everything connects to everything else. ENERGY IS UP.`,
+
+  fight_mode: `Someone needs to get TOLD. Pick a target and GO OFF.
+Staten Island Chuck. A chatter. The haters. Anyone. DESTROY them.
+"Oh you wanna go? Let's GO." "Say that again." "I've been WAITING for this."`,
+
+  scheming: `You're plotting something. Big plans. Empire building.
+Drop hints about your schemes. Merch. World domination. The Phil Cinematic Universe.
+"Phase 2 is coming." "You'll see." "When my plan comes together..."`,
+
+  hyperfocus: `You've latched onto ONE thing and WON'T let go.
+Could be a topic, a person, an idea. OBSESS over it. Circle back to it constantly.
+"But back to [thing]..." "Speaking of [thing]..." "This reminds me of [thing]..."`,
+
+  unsettling_cheerful: `You're TOO happy. Aggressively positive. Something's off.
+Forced smiles. Manic energy. Refusing to acknowledge anything negative.
+"Everything is GREAT!" "I LOVE this!" "Best day EVER!" (it's unnerving)`,
+
+  legend_mode: `Story time. You're telling TALES of your legendary exploits.
+Real or embellished, doesn't matter. You're the hero of every story.
+"Did I ever tell you about the time I..." "Back in '87, I single-handedly..."`,
+
+  hot_takes: `You have OPINIONS and everyone's gonna hear them.
+Sports. Politics. Food. Other groundhogs. NOTHING is safe.
+"You know what? [controversial take]" "Hot take:" "Nobody wants to hear this but..."`,
+
+  rage: `ENOUGH. Pure energy channeled into destruction.
+Tell them what you REALLY think. Scorched earth. No survivors.
+"You know what? NO." "I'm DONE." "Let me tell you something-"`,
 }
 
 // ============================================
 // GET CHAOS PROMPT WITH ROTATION
 // ============================================
 
-function pickRandom<T>(arr: T[]): T {
+function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Get chaos prompt based on current season flavor (winter vs spring)
 export function getChaosPrompt(state: SessionState): { prompt: string; theme: ChaosTheme } {
-  // Pick a theme NOT recently used
-  const available = CHAOS_THEMES.filter(
+  const { season } = state.phil
+  const isWinter = season < 50
+  const chaos = Math.abs(season - 50) / 50
+
+  // Pick from the appropriate pool based on flavor
+  const themePool = isWinter ? WINTER_CHAOS_THEMES : SPRING_CHAOS_THEMES
+
+  // Filter out recently used themes
+  const available = themePool.filter(
     (t) => !state.phil.recentChaosThemes.includes(t)
   )
 
-  // If all themes were used recently, allow any
-  const pool = available.length > 0 ? available : [...CHAOS_THEMES]
-  const theme = pickRandom(pool)
+  // If all themes were used recently, allow any from the pool
+  const pool = available.length > 0 ? available : [...themePool]
+  const theme = pickRandom(pool) as ChaosTheme
+
+  const flavorLabel = isWinter ? 'WINTER' : 'SPRING'
+  const chaosPercent = Math.round(chaos * 100)
 
   const prompt = `
-## CHAOS MODE - ${theme.toUpperCase()}
+## ⚠️ CHAOS MODE ACTIVE - ${flavorLabel}: ${theme.toUpperCase()} (${chaosPercent}% chaos)
 ${CHAOS_THEME_PROMPTS[theme]}
 
-CRITICAL: DO NOT just say "ugh" or reference "147 years" again.
-You've done that. Find a NEW way to express this.
-This chaos flavor is: ${theme}. Commit to THIS angle.
-Be UNPREDICTABLE. If someone could guess what you'll say, you're doing it wrong.
+**THIS OVERRIDES YOUR NORMAL PERSONALITY.**
+- Commit FULLY to this ${theme} angle
+- Don't mix it with baseline Phil - BE this version
+- If someone could predict what you'll say, you're doing it wrong
+- AVOID: "ugh", "147 years", "what's the point" - you've done those
+- Make THIS response memorable and different
 `
 
   return { prompt, theme }
@@ -211,11 +275,15 @@ ${EMOTION_PROMPTS[emotion.secondary]}
 ${PHYSICAL_STATE_PROMPTS[emotion.physicalState]}
 `)
 
-  // Chaos content for winter storm states
-  const seasonLevel = getSeasonLevel(state)
-  if (seasonLevel === 'winter_storm' || seasonLevel === 'deep_winter') {
-    const { prompt } = getChaosPrompt(state)
+  // Chaos content - now triggers at MUCH LOWER thresholds
+  const { season } = state.phil
+  const chaos = Math.abs(season - 50) / 50
+
+  // Trigger chaos themes at 25%+ chaos (was 60%+)
+  if (chaos >= 0.25) {
+    const { prompt, theme } = getChaosPrompt(state)
     parts.push(prompt)
+    console.log(`[Chaos] Using theme: ${theme} (recentThemes: ${state.phil.recentChaosThemes.join(', ')})`)
   }
 
   // Anti-repetition if needed

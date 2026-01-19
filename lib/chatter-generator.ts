@@ -11,6 +11,9 @@ import {
   getRandomSituation,
   getRandomBehaviorAngle,
   buildContextAwareness,
+  getHotButtonTopic,
+  getProvocativeBehavior,
+  buildCrossChatterPrompt,
 } from '@/lib/chatters'
 import type { SessionState, ChatterData } from '@/lib/session-state'
 
@@ -66,6 +69,25 @@ export async function generateChatterMessage(
   const situation = getRandomSituation()
   if (situation) {
     enhancedPrompt += `\nSITUATION: ${situation}`
+  }
+
+  // NEW: Add hot button topic (40% chance for certain types)
+  const hotButton = getHotButtonTopic(chatter.type)
+  if (hotButton) {
+    enhancedPrompt += `\n\n🔥 HOT BUTTON: Bring up "${hotButton.topic}" - this will get a reaction from Phil!`
+    console.log(`[Chatter] ${chatter.username} pressing hot button: ${hotButton.topic}`)
+  }
+
+  // NEW: Add provocative behavior (30% chance)
+  const provocative = getProvocativeBehavior()
+  if (provocative) {
+    enhancedPrompt += `\n\n⚡ PROVOCATIVE: ${provocative}`
+  }
+
+  // NEW: Add cross-chatter drama (25% chance)
+  const crossChatterDrama = buildCrossChatterPrompt(recentMessages, chatter)
+  if (crossChatterDrama) {
+    enhancedPrompt += crossChatterDrama
   }
 
   // Add anti-repetition context
@@ -146,12 +168,21 @@ ${context || '(stream just started)'}
 Generate one short chat message from this viewer:`,
     config: {
       maxOutputTokens: 500,
-      temperature: 1.0,
+      temperature: 1.2, // Slightly higher temp for more variety
       systemInstruction: `You generate short chat messages for a simulated viewer in a livestream chat.
 Today is ${formattedDate}. You can reference current events, the date, or time of year naturally.
-You will be given a personality type and recent chat context. Generate ONE short message (usually under 15 words) that fits the personality.
+
+IMPORTANT - BE INTERESTING:
+- PROVOKE reactions. Create drama. Make Phil WANT to respond.
+- Be confrontational, weird, controversial, or memorable.
+- Avoid boring, generic messages like "hi phil" or "love the stream"
+- Say something that will get a REACTION - positive or negative.
+- Chatters should feel like real internet degenerates, not polite guests.
+- Typos, bad grammar, all caps, weird punctuation = authentic.
+
+Generate ONE short message (usually under 15 words) that fits the personality.
 ONLY output the chat message itself, nothing else. No quotes, no attribution, just the message.
-The message should feel natural for a livestream chat - short, casual, often poorly punctuated.`,
+The message should feel natural for a livestream chat - chaotic, unfiltered, often unhinged.`,
     },
   })
 

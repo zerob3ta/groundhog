@@ -58,6 +58,10 @@ export interface SessionState {
     recentChaosThemes: string[] // Last 3 chaos themes used (for variety)
     recentPhrases: string[] // Last 10 notable phrases (to avoid repetition)
     lastComplianceAt?: number // Timestamp of last time Phil complied with a request (cooldown tracking)
+    // Rant tracking
+    lastRantAt?: number // Timestamp of last rant
+    rantCount: number // Total rants this session
+    recentRantTopics: string[] // Last 3 rant topics (to avoid repetition)
   }
 
   // Topic tracking - using object instead of Map for JSON serialization
@@ -109,6 +113,9 @@ export function createInitialSessionState(): SessionState {
       messageCount: 0,
       recentChaosThemes: [], // Start with no chaos themes used
       recentPhrases: [], // Start with no phrases tracked
+      // Rant tracking
+      rantCount: 0,
+      recentRantTopics: [],
     },
     topics: {},
     chatters: {},

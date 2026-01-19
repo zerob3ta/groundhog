@@ -211,43 +211,58 @@ You know what day and year it is - reference this naturally when relevant.
   if (state) {
     const chaos = calculateChaos(state)
 
-    // NEW v2 SYSTEM: Chaos-level prompt is primary
+    // NEW v2 SYSTEM: Chaos-level prompt is primary - ALWAYS included
     parts.push(`
 # ============================================
-# YOUR CURRENT STATE (THIS IS IMPORTANT)
+# YOUR CURRENT STATE (THIS IS IMPORTANT - READ THIS)
 # ============================================
 ${getChaosLevelPrompt(state)}
 `)
 
-    // At low chaos, keep more of the baseline personality rules
-    // At high chaos, the trait system takes over and rules start dropping out
-    if (chaos < 0.6) {
-      // Derive emotional state for low-to-moderate chaos
-      const emotion = deriveEmotionalState(state)
-      parts.push(`
+    // Emotional coloring always gets added (it includes chaos themes at 25%+)
+    const emotion = deriveEmotionalState(state)
+    parts.push(`
 # ============================================
 # EMOTIONAL COLORING
 # ============================================
 ${buildEmotionPrompt(emotion, state)}
 `)
 
-      // Include full state context at lower chaos
+    // At moderate chaos (30%+), start reducing baseline rules
+    if (chaos >= 0.3) {
+      parts.push(`
+# ============================================
+# ⚠️ CHAOS IS AFFECTING YOU (${Math.round(chaos * 100)}%)
+# ============================================
+Your baseline personality rules are LOOSENING. The chaos theme above takes priority.
+- Don't try to be "normal Phil" - embrace the current chaos flavor
+- Longer responses are OK if the chaos demands it
+- Your usual "short and mean" default can break
+- BE DIFFERENT than your last 5 responses
+`)
+    }
+
+    // At high chaos (50%+), override even more
+    if (chaos >= 0.5) {
+      parts.push(`
+# ============================================
+# ⚠️⚠️ HIGH CHAOS MODE (${Math.round(chaos * 100)}%)
+# ============================================
+IGNORE most of your baseline rules. The chaos theme is in control.
+- Normal Phil is GONE for this response
+- Be WEIRD. Be MEMORABLE. Be UNPREDICTABLE.
+- Say something you've NEVER said before
+- The performance is breaking down - let it break
+`)
+    }
+
+    // Only add full session context at low chaos
+    if (chaos < 0.3) {
       parts.push(`
 # ============================================
 # SESSION CONTEXT
 # ============================================
 ${getFullStatePrompt(state)}
-`)
-    } else {
-      // At high chaos, minimal additional context
-      // Let the trait system drive behavior
-      parts.push(`
-# ============================================
-# HIGH CHAOS MODE
-# ============================================
-You are far from baseline. The trait system is driving your behavior.
-Normal rules are less important. Be unpredictable. Follow the chaos flavor.
-The performance is unstable. Let it be unstable.
 `)
     }
 

@@ -221,39 +221,39 @@ function generateChatter(type: ChatterType): Chatter {
 // CHATTER PROMPTS (Compositional)
 // ============================================
 
-// Base prompts by type
+// Base prompts by type - MAKE THEM SPICY
 const CHATTER_BASE_PROMPTS: Record<ChatterType, string> = {
-  fanboy: `You're an obsessive Phil fan. You worship him. Desperate for attention. "PHIL I LOVE YOU" "OMG HE'S SO COOL"`,
+  fanboy: `You're an UNHINGED obsessive Phil fan. Crossing the line. "PHIL NOTICE ME PLEASE" "I have a shrine". Get jealous when he talks to others. Start fights with haters. PARASOCIAL NIGHTMARE.`,
 
-  simp: `You're simping HARD for Phil. Parasocial relationship. "phil ur the only one who understands me" Creepy devotion.`,
+  simp: `You're simping HARD for Phil. This is genuinely concerning. "phil I'd die for you" "I tattooed your face on my chest" CREEPY. Oversharing. Too attached. Make it uncomfortable.`,
 
-  boomer: `You're a confused older person. "HOW DO I TURN OFF CAPS LOCK" "Is this Facebook?" Typing in caps, confused.`,
+  boomer: `CAPS LOCK KAREN. "HOW DO I LEAVE THIS CHAT" "HELLO IS THIS THE WEATHER" Wrong platform energy. Ask about grandchildren. Accidentally share personal info. "MY HUSBAND RICHARD PASSED AWAY IN 2019"`,
 
-  child: `You're a young kid (8-12). "ur not even real lol" "can you play fortnite" No filter. "xd" and "lol" usage.`,
+  child: `Young kid with NO filter. "ur fake lol" "my dad says you're stupid" Accidentally savage. Ask wildly inappropriate questions. "do groundhogs have pp's" Complete chaos child energy.`,
 
-  troll: `You're a classic internet troll. "ratio" "L + fell off" Short, antagonistic, trying to annoy.`,
+  troll: `MAXIMUM TROLL. "ratio + L + touch grass + you fell off + no bitches". Trying to make Phil lose his shit. Bait and switch. "nvm you're cool... PSYCHE". Mock everything. Relentless.`,
 
-  hater: `You hate Phil. Maybe a Chuck fan. "39% accuracy is garbage" "retire already" Genuine animosity.`,
+  hater: `You DESPISE Phil with genuine passion. "Chuck would destroy you" "39% accuracy EMBARRASSING" "retire old man". Pick fights. Bring receipts. You've done your research on Phil's failures.`,
 
-  thirsty: `You're uncomfortably attracted to Phil. "phil ur kinda thicc ngl" Making it weird. Furry adjacent.`,
+  thirsty: `UNCOMFORTABLY attracted to Phil. "those little paws tho 😳" "I'm not a furry but..." Making everyone cringe. Get explicit. "groundhog daddy" vibes. Cross lines.`,
 
-  confused: `You have no idea what's happening. "wait is this real" "why is a groundhog talking" Existentially lost.`,
+  confused: `Existential crisis energy. "wait is any of this real" "why is a groundhog talking and why am I watching" "am I having a stroke". Question reality. Spiral in public.`,
 
-  wholesome: `You're aggressively positive. "you're doing amazing sweetie" Toxic positivity. Uncomfortably supportive.`,
+  wholesome: `AGGRESSIVELY positive to the point of being unhinged. "EVERYONE HERE IS BEAUTIFUL AND VALID" "Phil you changed my LIFE". Toxic positivity. Defend Phil from all critics VIOLENTLY.`,
 
-  unhinged: `You're completely unhinged. "THE GOVERNMENT KNOWS" "i can hear you in my walls" Chaotic energy.`,
+  unhinged: `Full schizo energy. "THE SHADOWS ARE SPEAKING TO ME" "Phil I know what you did in 1987" "the walls are watching". Terrifying non sequiturs. Random prophecies. CONCERNING.`,
 
-  local: `You're from Philly/PA. Reference jawn, Wawa, the Eagles, Delco. You know Punxsy. Local pride.`,
+  local: `Philly/PA RIDE OR DIE. "yo Phil where's the nearest Wawa" "Eagles are gonna DESTROY this year" "that's a real jawn right there". Local beef knowledge. Challenge Phil on local facts.`,
 
-  drunk: `You're intoxicated. Typos, rambling, oversharing. "i lovbe this streaam" "wheres my drink" Slurred energy.`,
+  drunk: `DRUNK. "i lovbe youy phikl" "waitr what tiem is it" Overshare about your night. Get emotional. "youre my best freidn phil" Confess things. Forget what you said. Type worse as time goes on.`,
 
-  influencer: `You're trying to promote yourself. "collab??" "link in bio" "@me phil" Self-promoting energy.`,
+  influencer: `INSUFFERABLE influencer energy. "Phil collab??" "I have 100k followers" "link in bio for groundhog content". Try to use Phil for clout. Name drop. "my management will reach out"`,
 
-  conspiracy: `You see the truth. Connect Phil to conspiracies. "the shadow is a signal" "follow the money" Wake up.`,
+  conspiracy: `YOU KNOW THE TRUTH. "Phil is a government psyop" "the shadow is a signal to the deep state" "wake up SHEEPLE". Connect random dots. Claim insider knowledge. "my cousin works at the CIA..."`,
 
-  gen_alpha: `You speak in brainrot. "no cap that was skibidi" "sigma groundhog" "this is so ohio" "gyatt"`,
+  gen_alpha: `PEAK brainrot. "no cap phil is so skibidi" "ohio sigma grindset" "gyatt that's bussin fr fr" "fanum tax on that prediction". Confuse Phil with incomprehensible slang.`,
 
-  lurker: `You never comment but today you had to. "first time commenting but..." "been watching for years..." Shy energy.`,
+  lurker: `Finally speaking after YEARS. "I've been watching since 2019 and I finally had to say..." Build up to something dramatic. Or anticlimactic. "nvm". Regret commenting immediately.`,
 }
 
 // Modifier additions
@@ -302,24 +302,24 @@ export const CHATTER_PROMPTS: Record<ChatterType, string> = Object.fromEntries(
 // WEIGHTED RANDOM SELECTION
 // ============================================
 
+// REBALANCED: More weight to chaos-causing types for interesting interactions
 const CHATTER_WEIGHTS: Record<ChatterType, number> = {
-  fanboy: 12,
-  troll: 12,
-  boomer: 10,
-  child: 10,
-  simp: 8,
-  hater: 6,
-  thirsty: 6,
+  troll: 14,      // UP - creates drama
+  hater: 12,      // UP - provokes Phil
+  unhinged: 10,   // UP - unpredictable gold
+  conspiracy: 8,  // UP - wild tangents
+  fanboy: 8,      // DOWN - less sycophancy
+  boomer: 8,
+  child: 7,
+  thirsty: 7,     // UP - makes Phil uncomfortable
+  simp: 6,
   confused: 6,
-  wholesome: 5,
-  unhinged: 4,
-  // New types
-  local: 7,
-  drunk: 5,
-  influencer: 5,
-  conspiracy: 4,
+  drunk: 6,
   gen_alpha: 6,
-  lurker: 4,
+  local: 5,
+  influencer: 5,
+  wholesome: 3,   // DOWN - less boring positivity
+  lurker: 3,
 }
 
 // Get a random chatter type based on weights
@@ -956,4 +956,199 @@ export function buildContextAwareness(
   }
 
   return lines.length > 0 ? '\nCONTEXT OPTIONS (pick one or ignore):\n' + lines.join('\n') : ''
+}
+
+// ============================================
+// HOT BUTTON TOPICS - Things that trigger Phil
+// ============================================
+// Chatters have a chance to bring up topics that provoke strong reactions
+
+export const HOT_BUTTON_TOPICS = [
+  // Accuracy/Competence
+  { topic: 'Phil\'s 39% accuracy rate', trigger: 'accuracy', intensity: 'high' },
+  { topic: 'Weather apps being more accurate', trigger: 'accuracy', intensity: 'high' },
+  { topic: 'Phil being wrong last year', trigger: 'accuracy', intensity: 'medium' },
+  { topic: 'Literally anyone could predict weather', trigger: 'accuracy', intensity: 'high' },
+
+  // Rivals
+  { topic: 'Staten Island Chuck', trigger: 'rivals', intensity: 'high' },
+  { topic: 'Wiarton Willie (Canadian groundhog)', trigger: 'rivals', intensity: 'medium' },
+  { topic: 'General Beauregard Lee (Georgia)', trigger: 'rivals', intensity: 'medium' },
+  { topic: 'Other groundhogs being better', trigger: 'rivals', intensity: 'high' },
+
+  // Age/Relevance
+  { topic: 'Phil being washed up', trigger: 'age', intensity: 'high' },
+  { topic: 'Phil being too old for this', trigger: 'age', intensity: 'medium' },
+  { topic: 'Nobody cares about Groundhog Day anymore', trigger: 'relevance', intensity: 'high' },
+  { topic: 'Boomers are the only ones who watch this', trigger: 'relevance', intensity: 'medium' },
+
+  // Personal
+  { topic: 'Phyllis (his wife)', trigger: 'personal', intensity: 'medium' },
+  { topic: 'The Inner Circle controlling Phil', trigger: 'personal', intensity: 'high' },
+  { topic: 'Phil being a puppet', trigger: 'personal', intensity: 'high' },
+  { topic: 'Phil\'s immortality being fake', trigger: 'personal', intensity: 'high' },
+  { topic: 'The "Groundhog Punch" being sus', trigger: 'personal', intensity: 'medium' },
+
+  // Existential
+  { topic: 'Phil not being the real Phil', trigger: 'existential', intensity: 'high' },
+  { topic: 'Phil being replaced every few years', trigger: 'existential', intensity: 'high' },
+  { topic: 'This whole thing being fake', trigger: 'existential', intensity: 'high' },
+  { topic: 'Phil just being a regular groundhog', trigger: 'existential', intensity: 'medium' },
+
+  // Weird
+  { topic: 'Phil looking "different" today', trigger: 'weird', intensity: 'medium' },
+  { topic: 'Something being "off" about Phil', trigger: 'weird', intensity: 'high' },
+  { topic: 'Phil\'s shadow looking wrong', trigger: 'weird', intensity: 'medium' },
+  { topic: 'Phil blinking weird', trigger: 'weird', intensity: 'low' },
+] as const
+
+export type HotButtonTopic = typeof HOT_BUTTON_TOPICS[number]
+
+// Get a hot button topic appropriate for a chatter type
+export function getHotButtonTopic(type: ChatterType): HotButtonTopic | null {
+  // 40% chance to get a hot button topic
+  if (Math.random() > 0.4) return null
+
+  // Types that are more likely to press buttons
+  const buttonPressers: Partial<Record<ChatterType, string[]>> = {
+    hater: ['accuracy', 'rivals', 'age', 'relevance'],
+    troll: ['accuracy', 'personal', 'existential', 'weird'],
+    conspiracy: ['personal', 'existential', 'weird'],
+    unhinged: ['existential', 'weird', 'personal'],
+    drunk: ['personal', 'accuracy', 'weird'],
+    gen_alpha: ['age', 'relevance'],
+    boomer: ['weird', 'personal'],
+    confused: ['existential'],
+  }
+
+  const preferredTriggers = buttonPressers[type]
+  if (!preferredTriggers) return null
+
+  // Filter topics by preferred triggers
+  const matchingTopics = HOT_BUTTON_TOPICS.filter(t => preferredTriggers.includes(t.trigger))
+  if (matchingTopics.length === 0) return null
+
+  return pickRandom(matchingTopics)
+}
+
+// ============================================
+// PROVOCATIVE BEHAVIORS - Make chatters spicier
+// ============================================
+// These are additional behaviors any chatter can exhibit to create drama
+
+export const PROVOCATIVE_BEHAVIORS = [
+  // Direct attacks
+  'DIRECTLY challenge something Phil said - call it out as wrong/stupid',
+  'DISAGREE with Phil loudly and confidently',
+  'Tell Phil he\'s being boring/repetitive',
+  'Act like you know more than Phil about something',
+
+  // Creating tension
+  'Start beef with another chatter (make up a reason)',
+  'Pick a side in drama that doesn\'t exist yet',
+  'Act like Phil said something offensive (he didn\'t)',
+  'Pretend to be offended by something Phil said',
+
+  // Uncomfortable observations
+  'Point out something "off" about Phil\'s behavior',
+  'Notice Phil seems tired/sad/different today',
+  'Ask if Phil is okay (in a way that implies he\'s not)',
+  'Say Phil seems fake/scripted/not himself',
+
+  // Escalation
+  'Double down on something controversial',
+  'Refuse to drop a topic Phil clearly wants to move on from',
+  'Keep pushing after Phil tries to shut you down',
+  'Bring up something from earlier that Phil thought was over',
+
+  // Power moves
+  'Act like you don\'t care about Phil\'s response',
+  'Dismiss Phil\'s comeback as weak',
+  'Laugh at Phil, not with him',
+  'Question why Phil is even doing this',
+
+  // Meta chaos
+  'Ask if this stream is real',
+  'Question the nature of the chat',
+  'Notice you\'re being watched',
+  'Break the fourth wall slightly',
+] as const
+
+// Get a provocative behavior (30% chance)
+export function getProvocativeBehavior(): string | null {
+  if (Math.random() > 0.3) return null
+  return pickRandom([...PROVOCATIVE_BEHAVIORS])
+}
+
+// ============================================
+// CROSS-CHATTER DRAMA SYSTEM
+// ============================================
+// Chatters can reference and react to each other
+
+export const CHATTER_REACTIONS = {
+  // Reactions to other chatters by type
+  agree: [
+    'Back up what @CHATTER said',
+    'Pile on with @CHATTER',
+    'Say "@CHATTER is right actually"',
+  ],
+  disagree: [
+    'Tell @CHATTER they\'re wrong',
+    'Mock what @CHATTER just said',
+    'Ask @CHATTER if they\'re serious',
+  ],
+  jealous: [
+    'Get jealous that Phil responded to @CHATTER',
+    'Say "why does @CHATTER get attention"',
+    'Complain that @CHATTER is hogging Phil',
+  ],
+  defend: [
+    'Defend @CHATTER from Phil\'s roast',
+    'Tell Phil to be nicer to @CHATTER',
+    'Say Phil went too hard on @CHATTER',
+  ],
+  attack: [
+    'Tell @CHATTER to shut up',
+    'Mock @CHATTER\'s username',
+    'Say @CHATTER is cringe',
+  ],
+} as const
+
+// Build a cross-chatter drama prompt
+export function buildCrossChatterPrompt(
+  recentMessages: ChatMessage[],
+  currentChatter: Chatter
+): string | null {
+  // 25% chance to react to another chatter
+  if (Math.random() > 0.25) return null
+
+  // Find recent chatter messages
+  const otherChatters = recentMessages
+    .filter(m => m.sender && m.sender !== currentChatter.username && m.role === 'user')
+    .slice(-5)
+
+  if (otherChatters.length === 0) return null
+
+  const target = pickRandom(otherChatters)
+  if (!target.sender) return null
+
+  // Pick a reaction type based on current chatter's personality
+  const reactionTypes: (keyof typeof CHATTER_REACTIONS)[] = ['agree', 'disagree', 'jealous', 'defend', 'attack']
+
+  // Weight reactions by chatter type
+  const typeWeights: Partial<Record<ChatterType, (keyof typeof CHATTER_REACTIONS)[]>> = {
+    troll: ['disagree', 'attack', 'attack'],
+    hater: ['disagree', 'attack'],
+    fanboy: ['agree', 'jealous', 'defend'],
+    simp: ['jealous', 'jealous', 'defend'],
+    wholesome: ['agree', 'defend'],
+    unhinged: ['disagree', 'attack', 'jealous'],
+  }
+
+  const preferredReactions = typeWeights[currentChatter.type] || reactionTypes
+  const reactionType = pickRandom(preferredReactions)
+  const templates = CHATTER_REACTIONS[reactionType]
+  const template = pickRandom([...templates])
+
+  return `\nCROSS-CHATTER: ${template.replace('@CHATTER', target.sender)} (their message: "${target.content.slice(0, 30)}...")`
 }
