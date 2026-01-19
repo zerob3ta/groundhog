@@ -350,7 +350,7 @@ export default function ChatPanelBroadcast() {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 chat-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 chat-scrollbar">
         {messages.filter(m => m.sender !== 'phil').map((message) => (
           <ChatMessage key={message.id} message={message} currentUserName={displayName} />
         ))}
@@ -415,21 +415,21 @@ function ChatMessage({ message, currentUserName }: { message: ClientMessage; cur
   // Chatter messages
   if (isChatter && message.chatter) {
     return (
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 overflow-hidden">
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
           style={{ backgroundColor: message.chatter.color + '40' }}
         >
           <span style={{ color: message.chatter.color }}>●</span>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <span
             className="text-xs font-semibold mr-2"
             style={{ color: message.chatter.color }}
           >
             {message.chatter.username}
           </span>
-          <span className="text-sm text-stream-text">{message.text}</span>
+          <span className="text-sm text-stream-text break-words">{message.text}</span>
         </div>
       </div>
     )
@@ -443,10 +443,10 @@ function ChatMessage({ message, currentUserName }: { message: ClientMessage; cur
     // Own messages: right-aligned bubble style
     if (isOwnMessage) {
       return (
-        <div className="flex items-start gap-2 justify-end">
-          <div className="max-w-[75%] rounded-2xl rounded-br-sm px-3 py-2 bg-blue-600">
+        <div className="flex items-start gap-2 justify-end overflow-hidden">
+          <div className="max-w-[75%] rounded-2xl rounded-br-sm px-3 py-2 bg-blue-600 overflow-hidden">
             <p className="text-xs text-blue-200 mb-0.5 font-medium">You</p>
-            <p className="text-sm text-white leading-relaxed">{message.text}</p>
+            <p className="text-sm text-white leading-relaxed break-words">{message.text}</p>
           </div>
         </div>
       )
@@ -454,21 +454,21 @@ function ChatMessage({ message, currentUserName }: { message: ClientMessage; cur
 
     // Other users' messages: styled like chatters
     return (
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 overflow-hidden">
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
           style={{ backgroundColor: USER_COLOR + '40' }}
         >
           <span style={{ color: USER_COLOR }}>●</span>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <span
             className="text-xs font-semibold mr-2"
             style={{ color: USER_COLOR }}
           >
             {message.senderName}
           </span>
-          <span className="text-sm text-stream-text">{message.text}</span>
+          <span className="text-sm text-stream-text break-words">{message.text}</span>
         </div>
       </div>
     )
