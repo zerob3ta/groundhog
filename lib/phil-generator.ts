@@ -4,6 +4,7 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai'
 import { CHAT_CONFIG, buildSystemPrompt } from '@/lib/phil-prompt'
 import type { SessionState } from '@/lib/session-state'
+import { stripCitations } from '@/lib/text-utils'
 
 // Initialize AI client lazily
 let ai: GoogleGenAI | null = null
@@ -56,7 +57,7 @@ export async function generatePhilResponse(
     }
   }
 
-  return { text: fullText }
+  return { text: stripCitations(fullText) }
 }
 
 // Generate TTS audio for Phil's response

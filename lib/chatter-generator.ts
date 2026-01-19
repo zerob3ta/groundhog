@@ -21,6 +21,7 @@ import {
   buildRantContext,
   getRantReactionSuggestions,
 } from '@/lib/rant-detector'
+import { stripCitations } from '@/lib/text-utils'
 
 // Initialize AI client lazily
 let ai: GoogleGenAI | null = null
@@ -233,10 +234,10 @@ The message should feel natural for a livestream chat - chaotic, unfiltered, oft
     },
   })
 
-  const text = response.text || ''
+  const text = stripCitations(response.text || '')
 
   return {
     chatter,
-    message: text.trim(),
+    message: text,
   }
 }

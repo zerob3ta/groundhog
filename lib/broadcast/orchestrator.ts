@@ -66,7 +66,7 @@ class BroadcastOrchestrator {
   // Processing state
   private isGeneratingPhilResponse: boolean = false
   private isGeneratingChatter: boolean = false
-  private philResponseQueue: BroadcastMessage[] = []
+  private pendingUserMessage: { displayName: string; text: string } | null = null  // Queue for user message when Phil is busy
   private lastPhilResponseTime: number = 0
   private lastResponseType: 'user' | 'rant' | 'chatter' | 'deadair' = 'deadair'
   private lastRantAnalysis: RantAnalysis | null = null
@@ -337,6 +337,16 @@ class BroadcastOrchestrator {
       this.isGeneratingPhilResponse = false
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
+
+      // Process any queued user message
+      if (this.pendingUserMessage) {
+        const pending = this.pendingUserMessage
+        this.pendingUserMessage = null
+        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        setTimeout(() => {
+          this.generatePhilResponseToUser(pending.displayName, pending.text)
+        }, 500)
+      }
     }
   }
 
@@ -420,6 +430,16 @@ class BroadcastOrchestrator {
       this.isGeneratingPhilResponse = false
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
+
+      // Process any queued user message
+      if (this.pendingUserMessage) {
+        const pending = this.pendingUserMessage
+        this.pendingUserMessage = null
+        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        setTimeout(() => {
+          this.generatePhilResponseToUser(pending.displayName, pending.text)
+        }, 500)
+      }
     }
   }
 
@@ -469,6 +489,16 @@ class BroadcastOrchestrator {
       this.isGeneratingPhilResponse = false
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
+
+      // Process any queued user message
+      if (this.pendingUserMessage) {
+        const pending = this.pendingUserMessage
+        this.pendingUserMessage = null
+        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        setTimeout(() => {
+          this.generatePhilResponseToUser(pending.displayName, pending.text)
+        }, 500)
+      }
     }
   }
 
@@ -507,7 +537,10 @@ class BroadcastOrchestrator {
     if (state.getIsSleeping()) return
 
     if (this.isGeneratingPhilResponse) {
-      // Queue this request
+      // Queue this user message - Phil will respond when free
+      // Only keep the latest user message (older ones become stale)
+      console.log(`[Orchestrator] Phil busy, queuing message from ${displayName}`)
+      this.pendingUserMessage = { displayName, text: userText }
       return
     }
 
@@ -551,6 +584,17 @@ class BroadcastOrchestrator {
       this.isGeneratingPhilResponse = false
       state.setPhilTyping(false)
       await this.broadcast({ type: 'typing', data: { isTyping: false } })
+
+      // Process any queued user message
+      if (this.pendingUserMessage) {
+        const pending = this.pendingUserMessage
+        this.pendingUserMessage = null
+        console.log(`[Orchestrator] Processing queued message from ${pending.displayName}`)
+        // Use setTimeout to avoid stack overflow and give a small delay
+        setTimeout(() => {
+          this.generatePhilResponseToUser(pending.displayName, pending.text)
+        }, 500)
+      }
     }
   }
 

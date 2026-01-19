@@ -11,13 +11,14 @@ export type ChatterType =
   | 'confused'
   | 'wholesome'
   | 'unhinged'
-  // New types
   | 'local'       // Philly/PA locals, know the area
   | 'drunk'       // Intoxicated rambling, typos
   | 'influencer'  // Self-promoting, "collab?", "@me"
   | 'conspiracy'  // Focused conspiracy theories
   | 'gen_alpha'   // Brainrot speak, "skibidi", "sigma"
   | 'lurker'      // "I never comment but..." energy
+  | 'normie'      // Regular person, varied interests, drops current events naturally
+  | 'takes_haver' // Has opinions on everything, brings up random topics
 
 // Personality modifiers that stack on base types
 export type PersonalityModifier =
@@ -137,6 +138,21 @@ export const CHATTER_POOL: Record<ChatterType, Chatter[]> = {
     { username: 'FirstTimeCommenter', type: 'lurker', color: '#808080' },
     { username: 'LongTimeLurker', type: 'lurker', color: '#A9A9A9' },
   ],
+  normie: [
+    { username: 'jdog_42', type: 'normie', color: '#5D9CEC' },
+    { username: 'mike_t_2024', type: 'normie', color: '#4A4A4A' },
+    { username: 'sarah_k', type: 'normie', color: '#7B68EE' },
+    { username: 'randomguy_phl', type: 'normie', color: '#3CB371' },
+    { username: 'lurking_lisa', type: 'normie', color: '#DA70D6' },
+    { username: 'just_here_lol', type: 'normie', color: '#20B2AA' },
+  ],
+  takes_haver: [
+    { username: 'actually_wrong', type: 'takes_haver', color: '#FF6347' },
+    { username: 'hot_take_tim', type: 'takes_haver', color: '#FF4500' },
+    { username: 'well_actually', type: 'takes_haver', color: '#DC143C' },
+    { username: 'unpopular_opinion', type: 'takes_haver', color: '#B22222' },
+    { username: 'idk_man', type: 'takes_haver', color: '#CD5C5C' },
+  ],
 }
 
 // ============================================
@@ -162,6 +178,8 @@ const USERNAME_COMPONENTS = {
     conspiracy: ['Truth', 'Woke', 'Awake', 'TheyLied', 'OpenEyes', 'Hidden'],
     gen_alpha: ['Skibidi', 'Sigma', 'Ohio', 'Gyatt', 'Rizz', 'Brainrot'],
     lurker: ['Silent', 'Watcher', 'Observer', 'Quiet', 'Shy', 'Anon'],
+    normie: ['guy', 'dude', 'person', 'user', 'rando', 'viewer', 'just', 'here'],
+    takes_haver: ['actually', 'take', 'opinion', 'think', 'tbh', 'ngl', 'imo'],
   },
   suffixes: ['_42069', '2024', '2025', '_real', '_irl', '420', '_lol', '_xd', '69', ''],
 }
@@ -183,6 +201,8 @@ const TYPE_COLORS: Record<ChatterType, string[]> = {
   conspiracy: ['#556B2F', '#6B8E23', '#8B4513'],
   gen_alpha: ['#00CED1', '#20B2AA', '#48D1CC'],
   lurker: ['#696969', '#808080', '#A9A9A9'],
+  normie: ['#5D9CEC', '#4A4A4A', '#7B68EE', '#3CB371'],
+  takes_haver: ['#FF6347', '#FF4500', '#DC143C', '#B22222'],
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -254,6 +274,10 @@ const CHATTER_BASE_PROMPTS: Record<ChatterType, string> = {
   gen_alpha: `PEAK brainrot. "no cap phil is so skibidi" "ohio sigma grindset" "gyatt that's bussin fr fr" "fanum tax on that prediction". Confuse Phil with incomprehensible slang.`,
 
   lurker: `Finally speaking after YEARS. "I've been watching since 2019 and I finally had to say..." Build up to something dramatic. Or anticlimactic. "nvm". Regret commenting immediately.`,
+
+  normie: `You're a regular person just vibing in chat. You have normal interests - sports, weather, food, whatever's going on in the world. Drop casual observations about stuff happening IRL. "crazy weather today" "did you see the game" "everything's so expensive now" "my dog would hate this". You're not trying to bait anyone, you're just chatting. React to Phil like a normal person would. Sometimes agree, sometimes confused, sometimes have your own tangent. USE SEARCH to know what's actually happening today and mention it naturally.`,
+
+  takes_haver: `You have OPINIONS about everything and you're not shy about sharing. Not a troll - you genuinely believe your takes. You'll randomly bring up something from the news, sports, tech, economy, whatever - and have a strong opinion. "hot take but..." "unpopular opinion:" "am I crazy or..." "nobody's talking about..." You're the friend who always has something to say about current events. USE SEARCH to find real stuff happening and have genuine (sometimes wrong) opinions about it. Not aggressive, just opinionated.`,
 }
 
 // Modifier additions
@@ -304,22 +328,24 @@ export const CHATTER_PROMPTS: Record<ChatterType, string> = Object.fromEntries(
 
 // REBALANCED: More weight to chaos-causing types for interesting interactions
 const CHATTER_WEIGHTS: Record<ChatterType, number> = {
-  troll: 14,      // UP - creates drama
-  hater: 12,      // UP - provokes Phil
-  unhinged: 10,   // UP - unpredictable gold
-  conspiracy: 8,  // UP - wild tangents
-  fanboy: 8,      // DOWN - less sycophancy
-  boomer: 8,
-  child: 7,
-  thirsty: 7,     // UP - makes Phil uncomfortable
-  simp: 6,
-  confused: 6,
-  drunk: 6,
-  gen_alpha: 6,
-  local: 5,
-  influencer: 5,
-  wholesome: 3,   // DOWN - less boring positivity
-  lurker: 3,
+  troll: 10,      // Creates drama (winter)
+  hater: 10,      // Provokes Phil (spring - fight mode)
+  normie: 10,     // Regular people who drop current events naturally
+  takes_haver: 10, // Opinionated, brings up topics
+  fanboy: 9,      // Hype energy (spring) - BOOSTED
+  unhinged: 8,    // Unpredictable manic gold (spring)
+  simp: 7,        // Ego inflation (spring) - BOOSTED
+  child: 7,       // Chaotic spring energy - BOOSTED
+  conspiracy: 6,  // Wild tangents (winter)
+  boomer: 6,      // Draining (winter)
+  thirsty: 6,     // Makes Phil uncomfortable (spring)
+  drunk: 6,       // Party chaos (spring) - BOOSTED
+  gen_alpha: 5,   // Random chaos
+  local: 5,       // Philly pride (spring)
+  confused: 4,    // Existential (winter) - LOWERED
+  influencer: 4,  // Annoying (spring)
+  wholesome: 3,   // Stabilizing
+  lurker: 3,      // Neutral
 }
 
 // Get a random chatter type based on weights
@@ -421,9 +447,9 @@ export interface ChatterTendency {
 
 export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
   fanboy: {
-    chaosTendency: -0.3,  // Slightly stabilizing (hype)
-    flavorTendency: 'spring',
-    canFlip: true,  // Obsessive fanboys can destabilize
+    chaosTendency: 0.5,   // Hype INCREASES chaos (obsessive energy)
+    flavorTendency: 'spring',  // Fanboys push toward manic spring
+    canFlip: true,  // Can flip to sad winter if Phil rejects them
   },
   troll: {
     chaosTendency: 0.7,   // Destabilizing
@@ -436,19 +462,19 @@ export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
     canFlip: true,  // Can ground Phil in nostalgia
   },
   child: {
-    chaosTendency: 0.5,   // Chaotic but innocent
+    chaosTendency: 0.6,   // Chaotic energy gets Phil hyped
     flavorTendency: 'spring',
     canFlip: true,  // Innocence can be grounding
   },
   simp: {
-    chaosTendency: 0,     // Neutral - depends on context
-    flavorTendency: 'random',
-    canFlip: true,  // Creepy destabilizes, genuine flattery stabilizes
+    chaosTendency: 0.4,   // Worship fuels ego (spring chaos)
+    flavorTendency: 'spring',  // Simps inflate Phil's ego
+    canFlip: true,  // Can be creepy (winter) if too much
   },
   hater: {
     chaosTendency: 0.6,   // Destabilizing
-    flavorTendency: 'random',  // Fight mode (spring) or bitter (winter)
-    canFlip: true,
+    flavorTendency: 'spring',  // Fight mode is AGGRESSIVE (spring)
+    canFlip: true,  // If Phil loses the exchange, flips to winter
   },
   thirsty: {
     chaosTendency: 0.5,   // Weird energy destabilizes
@@ -467,16 +493,16 @@ export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
   },
   unhinged: {
     chaosTendency: 0.9,   // Maximum chaos
-    flavorTendency: 'random',
+    flavorTendency: 'spring',  // Unhinged energy is MANIC spring
     canFlip: true,
   },
   local: {
-    chaosTendency: -0.5,  // Grounding, connects to roots
-    flavorTendency: 'neutral',
-    canFlip: true,  // Philly beef can chaos+spring
+    chaosTendency: 0.3,   // Can rile Phil up with local pride
+    flavorTendency: 'spring',  // Philly energy is aggressive spring
+    canFlip: true,  // Can ground Phil (flip to neutral)
   },
   drunk: {
-    chaosTendency: 0.5,   // Chaotic energy
+    chaosTendency: 0.6,   // Chaotic party energy
     flavorTendency: 'spring',
     canFlip: true,  // Sad drunk -> winter
   },
@@ -499,6 +525,16 @@ export const CHATTER_TENDENCIES: Record<ChatterType, ChatterTendency> = {
     chaosTendency: -0.3,  // Genuine, stabilizing
     flavorTendency: 'neutral',
     canFlip: true,  // "I've been watching you" could creep out
+  },
+  normie: {
+    chaosTendency: 0.2,   // Slight chaos from bringing up topics
+    flavorTendency: 'neutral',
+    canFlip: true,  // Depends on the topic
+  },
+  takes_haver: {
+    chaosTendency: 0.4,   // Opinions stir things up
+    flavorTendency: 'random',
+    canFlip: true,  // Good takes can stabilize
   },
 }
 
@@ -802,6 +838,26 @@ export const CHATTER_BEHAVIOR_POOLS: Record<ChatterType, string[]> = {
     'Say this stream finally made you speak up',
     'Mention you\'re usually shy',
     'Share something you noticed nobody else did',
+  ],
+  normie: [
+    'Comment on the weather today',
+    'Mention something from the news casually',
+    'React to Phil like a normal person',
+    'Bring up food or what you\'re eating',
+    'Mention your pet or animals',
+    'Talk about sports casually',
+    'Say something about prices/economy',
+    'Ask Phil a genuine question',
+  ],
+  takes_haver: [
+    'Share an unpopular opinion about something current',
+    'Disagree with something Phil said (respectfully)',
+    'Bring up a news story with a hot take',
+    'Have a strong opinion about something random',
+    'Play devil\'s advocate on a topic',
+    'Ask Phil his opinion on something current',
+    'Share a take that might be controversial',
+    'Correct someone (including Phil) about facts',
   ],
 }
 

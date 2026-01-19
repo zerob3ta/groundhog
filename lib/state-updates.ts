@@ -210,6 +210,12 @@ const SEASON_TRIGGERS = {
   roast_success: 4,    // Successful roast
   hype: 10,            // Chat hype - BIG spring push
   favorite_topic: 5,   // Favorite topic
+
+  // NEW: More spring triggers for balance
+  fight_won: 12,       // Phil wins an argument/roast - BIG spring push
+  challenge: 8,        // Someone challenges Phil - fight mode
+  worship: 10,         // Excessive praise/worship - ego inflation
+  competition: 8,      // Rivalry/competition talk - aggressive spring
 } as const
 
 export type SeasonTrigger = keyof typeof SEASON_TRIGGERS
@@ -233,7 +239,7 @@ export function applyWinterTrigger(
 
 export function applySpringTrigger(
   state: SessionState,
-  trigger: 'engagement' | 'wholesome' | 'good_question' | 'roast_success' | 'hype' | 'favorite_topic'
+  trigger: 'engagement' | 'wholesome' | 'good_question' | 'roast_success' | 'hype' | 'favorite_topic' | 'fight_won' | 'challenge' | 'worship' | 'competition'
 ): SessionState {
   return applySeasonTrigger(state, trigger)
 }
@@ -818,6 +824,77 @@ export function analyzeMessageSentiment(message: string): MessageSentiment {
     return { chaos: 'up', flavor: 'winter', trigger: 'existential' }
   }
 
+  // ============================================
+  // SPRING CHAOS TRIGGERS (push toward 100)
+  // ============================================
+
+  // Ego boosting / worship - chaos UP, spring (manic energy)
+  if (
+    lower.includes('goat') ||
+    lower.includes('the greatest') ||
+    lower.includes('legend') ||
+    lower.includes('iconic') ||
+    lower.includes('king') ||
+    lower.includes('better than') ||
+    lower.includes('no one compares')
+  ) {
+    return { chaos: 'up', flavor: 'spring', trigger: 'hype' }
+  }
+
+  // Fighting words / challenges - chaos UP, spring (aggressive)
+  if (
+    lower.includes('fight me') ||
+    lower.includes('prove it') ||
+    lower.includes('bet you can\'t') ||
+    lower.includes('bet you won\'t') ||
+    lower.includes('no balls') ||
+    lower.includes('scared') ||
+    lower.includes('coward')
+  ) {
+    return { chaos: 'up', flavor: 'spring', trigger: 'hype' }
+  }
+
+  // Competition / rivalry mentions - chaos UP, spring (megalomaniac)
+  if (
+    lower.includes('vs') ||
+    lower.includes('versus') ||
+    lower.includes('dominate') ||
+    lower.includes('destroy') ||
+    lower.includes('crush') ||
+    lower.includes('beat') ||
+    lower.includes('win')
+  ) {
+    return { chaos: 'up', flavor: 'spring', trigger: 'hype' }
+  }
+
+  // Excessive hype / mania - chaos UP, spring
+  if (
+    lower.includes('omg') ||
+    lower.includes('!!!') ||
+    (lower.match(/!{2,}/)) ||
+    lower.includes('lets goooo') ||
+    lower.includes('let\'s go') ||
+    lower.includes('hype') ||
+    lower.includes('insane')
+  ) {
+    return { chaos: 'up', flavor: 'spring', trigger: 'hype' }
+  }
+
+  // Empire / domination talk - chaos UP, spring
+  if (
+    lower.includes('empire') ||
+    lower.includes('rule') ||
+    lower.includes('world domination') ||
+    lower.includes('bow down') ||
+    lower.includes('kneel')
+  ) {
+    return { chaos: 'up', flavor: 'spring', trigger: 'hype' }
+  }
+
+  // ============================================
+  // WINTER CHAOS TRIGGERS
+  // ============================================
+
   // Trolling/hate - chaos up, winter
   if (
     lower.includes('suck') ||
@@ -828,6 +905,19 @@ export function analyzeMessageSentiment(message: string): MessageSentiment {
   ) {
     return { chaos: 'up', flavor: 'winter', trigger: 'troll' }
   }
+
+  // Boring/repetitive questions
+  if (
+    lower.includes('see your shadow') ||
+    lower.includes('predict the weather') ||
+    lower.includes('favorite food')
+  ) {
+    return { chaos: 'up', flavor: 'winter', trigger: 'boring' }
+  }
+
+  // ============================================
+  // STABILIZING TRIGGERS (push toward 50)
+  // ============================================
 
   // Wholesome/supportive - chaos down, neutral
   if (
@@ -840,17 +930,6 @@ export function analyzeMessageSentiment(message: string): MessageSentiment {
     return { chaos: 'down', flavor: 'neutral', trigger: 'wholesome' }
   }
 
-  // Hype/excitement - chaos down, spring
-  if (
-    lower.includes('omg') ||
-    lower.includes('!!!') ||
-    lower.includes('legendary') ||
-    lower.includes('king') ||
-    lower.includes('goat')
-  ) {
-    return { chaos: 'down', flavor: 'spring', trigger: 'hype' }
-  }
-
   // Good engagement/questions about lore - chaos down
   if (
     lower.includes('tell me about') ||
@@ -860,15 +939,6 @@ export function analyzeMessageSentiment(message: string): MessageSentiment {
     lower.includes('gobbler')
   ) {
     return { chaos: 'down', flavor: 'neutral', trigger: 'engagement' }
-  }
-
-  // Boring/repetitive questions
-  if (
-    lower.includes('see your shadow') ||
-    lower.includes('predict the weather') ||
-    lower.includes('favorite food')
-  ) {
-    return { chaos: 'up', flavor: 'winter', trigger: 'boring' }
   }
 
   // Weird/confusing

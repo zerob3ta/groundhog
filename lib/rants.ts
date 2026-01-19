@@ -7,7 +7,7 @@ import type { SessionState } from './session-state'
 // TYPES
 // ============================================
 
-export type RantCategory = 'sports' | 'news' | 'politics' | 'tech'
+export type RantCategory = 'sports' | 'news' | 'politics' | 'tech' | 'weather' | 'entertainment' | 'food' | 'generations' | 'economy' | 'animals'
 export type Spiciness = 'mild' | 'medium' | 'hot' | 'unhinged'
 
 export interface RantTopic {
@@ -104,6 +104,116 @@ Pick something WILD. Not just "both sides bad" - have a SPECIFIC insane take.`,
 - You're weirdly supportive of one tech thing and violently opposed to another
 Have an INSANE take that a normal person wouldn't say out loud.`,
   },
+  weather: {
+    keywords: ['weather', 'climate', 'cold', 'hot', 'snow', 'rain', 'storm', 'forecast', 'temperature', 'global warming', 'climate change', 'winter', 'spring'],
+    searchQueries: [
+      'extreme weather this week',
+      'climate change news',
+      'weather forecast controversy',
+      'record temperatures today',
+      'winter storm news',
+    ],
+    philAngle: `Weather is YOUR DOMAIN. You have 147 years of weather opinions:
+- Climate scientists are either prophets or frauds - pick one HARD
+- You predicted all of this decades ago and nobody listened
+- Weather apps are a personal insult to your craft
+- You have a conspiracy about who controls the weather (government? billionaires?)
+- Seasons aren't what they used to be and you have RECEIPTS from 1890
+- Your shadow-based system is superior to all modern meteorology
+Get territorial. This is YOUR turf.`,
+  },
+  entertainment: {
+    keywords: ['movie', 'film', 'show', 'tv', 'netflix', 'streaming', 'actor', 'actress', 'oscar', 'emmy', 'celebrity', 'hollywood', 'music', 'concert', 'album', 'taylor', 'beyonce'],
+    searchQueries: [
+      'celebrity news today',
+      'movie controversy this week',
+      'streaming wars news',
+      'hollywood drama',
+      'music industry news',
+      'viral entertainment story',
+    ],
+    philAngle: `You have UNHINGED entertainment takes:
+- Hollywood peaked in a specific decade and everything since is garbage
+- One celebrity is secretly running everything (be vague about what)
+- Streaming is either saving or destroying entertainment - no middle ground
+- You have beef with a specific actor/musician from a perceived slight
+- Award shows are rigged and you know exactly how
+- You're weirdly obsessed with one old movie/show nobody remembers
+Pick something specific and GO OFF.`,
+  },
+  food: {
+    keywords: ['food', 'restaurant', 'eating', 'diet', 'vegan', 'meat', 'cooking', 'chef', 'recipe', 'fast food', 'mcdonalds', 'starbucks'],
+    searchQueries: [
+      'food trend controversy',
+      'restaurant news today',
+      'viral food story',
+      'food recall news',
+      'diet trend debate',
+    ],
+    philAngle: `You have EXTREME food opinions:
+- Modern food is poison and you've been saying it since 1920
+- One specific food is either god-tier or a crime against humanity
+- Food trends are symptoms of societal collapse
+- You have a weirdly specific conspiracy about the food industry
+- Philadelphia food is superior to all other regional food (fight everyone)
+- You eat something weird and will defend it violently
+Pick a hill and DIE on it.`,
+  },
+  generations: {
+    keywords: ['boomer', 'millennial', 'gen z', 'gen alpha', 'zoomer', 'kids these days', 'back in my day', 'generation', 'young people', 'old people'],
+    searchQueries: [
+      'generational divide news',
+      'gen z trend today',
+      'boomer vs millennial',
+      'generational wealth gap',
+      'young people controversy',
+    ],
+    philAngle: `You're 147 - you've seen EVERY generation and have takes:
+- Every generation thinks they invented everything (including yours)
+- One specific generation is the worst and you have 147 years of evidence
+- Generational labels are a scam to divide people (or they're totally accurate)
+- You remember when [current complaint] was said about EVERY generation
+- Young people are either the future or proof of decline - commit to one
+- You relate to a generation you shouldn't and it's weird
+Be a chaos agent in the generational wars.`,
+  },
+  economy: {
+    keywords: ['economy', 'money', 'inflation', 'housing', 'rent', 'job', 'salary', 'rich', 'poor', 'billionaire', 'stock', 'market', 'recession', 'prices'],
+    searchQueries: [
+      'economy news today',
+      'housing market news',
+      'inflation news',
+      'job market controversy',
+      'wealth inequality news',
+      'cost of living crisis',
+    ],
+    philAngle: `You've lived through every economic era and have TAKES:
+- The economy is fake and you've known since 1907
+- One specific thing is causing all economic problems (be weirdly specific)
+- You remember when things cost [absurdly low price] and you're FURIOUS
+- Rich people are either evil geniuses or lucky idiots - pick one
+- You have a conspiracy about what money actually is
+- The next crash is coming and you've been right before (cite a year)
+Be economically unhinged.`,
+  },
+  animals: {
+    keywords: ['animal', 'dog', 'cat', 'pet', 'wildlife', 'zoo', 'nature', 'species', 'groundhog', 'rodent', 'bird', 'bear', 'deer'],
+    searchQueries: [
+      'animal news today',
+      'wildlife story this week',
+      'pet trend controversy',
+      'zoo news',
+      'nature viral story',
+    ],
+    philAngle: `You're a groundhog with OPINIONS about other animals:
+- Dogs are overrated and you'll fight anyone who disagrees
+- One specific animal is secretly running things (birds? squirrels?)
+- Humans misunderstand ALL animals and you're proof
+- You have beef with a specific species (probably squirrels)
+- Zoos are either sanctuaries or prisons - commit hard
+- You're the most important animal and everyone else is cope
+Defend groundhog supremacy or burn it all down.`,
+  },
 }
 
 // ============================================
@@ -193,14 +303,19 @@ export function selectRantTopic(
 
 /**
  * Get a random category with weighted selection
- * Sports and tech are slightly more likely
  */
 function getRandomCategory(): RantCategory {
   const weights: Record<RantCategory, number> = {
-    sports: 3,    // Phil loves Philly sports
-    tech: 3,      // AI paranoia is fun
+    sports: 3,        // Phil loves Philly sports
+    tech: 3,          // AI paranoia is fun
+    weather: 3,       // His literal domain
     news: 2,
     politics: 2,
+    entertainment: 2,
+    food: 2,
+    generations: 2,
+    economy: 2,
+    animals: 2,       // Groundhog supremacy
   }
 
   const entries = Object.entries(weights) as [RantCategory, number][]
