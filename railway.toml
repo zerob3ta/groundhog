@@ -7,3 +7,7 @@ healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+# Increase timeout for SSE connections
+[deploy.proxy]
+requestTimeout = 300
